@@ -54,6 +54,12 @@ ignore_missing_imports = true
 # pytest
 # --------------------------------------------------------------------------- #
 [tool.pytest.ini_options]
+# Proje kokunde bir paket kurulumu (pip install -e .) olmadan core/,
+# capability/, llm_security/ gibi kok-seviyesi paketlerin import edilebilmesi
+# icin gerekli. "python -m pytest" CWD'yi otomatik ekler ama duz "pytest"
+# komutu (CI'nin kullandigi) eklemez; bu ayar cagirma seklinden bagimsiz
+# calisir.
+pythonpath = ["."]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "-ra --strict-markers"
