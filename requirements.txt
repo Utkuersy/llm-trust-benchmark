@@ -1,0 +1,40 @@
+# --- Çekirdek ---
+pydantic>=2.6,<3.0
+PyYAML>=6.0,<7.0
+numpy>=1.26,<3.0
+pandas>=2.1,<3.0
+
+# --- Değerlendirme ---
+sympy>=1.12,<2.0          # matematik cevap denkliği (sembolik karşılaştırma)
+
+# --- MLOps ---
+mlflow>=2.12,<3.0
+
+# --- Dashboard ---
+streamlit>=1.33,<2.0
+plotly>=5.20,<6.0
+
+# --- Geliştirme ---
+pytest>=8.0,<9.0
+ruff>=0.4,<1.0
+mypy>=1.9,<2.0
+pylint>=3.1,<4.0
+bandit[toml]>=1.7,<2.0
+pip-audit>=2.7,<3.0
+pre-commit>=3.7,<5.0
+types-PyYAML>=6.0,<7.0
+
+# --- Opsiyonel: gerçek embedding, vektör DB ve LLM tabanlı değerlendirme ---
+# Kurulu değillerse sistem sırasıyla NumPy deposu, hashing embedding ve
+# heuristic faithfulness moduna düşer; kullanılan arka uç çıktıda
+# "backend" alanıyla raporlanır.
+#
+# İÇ AĞ NOTU: bu paketler model ağırlıklarını çalışma anında indirmeye
+# çalışır. Hava kapalı ortamda ağırlıkları önceden indirip diske koyun ve
+# HF_HUB_OFFLINE=1 / TRANSFORMERS_OFFLINE=1 ile çalıştırın (config/offline).
+#
+# chromadb>=0.5,<0.7
+# sentence-transformers>=2.7,<4.0
+# transformers>=4.40,<5.0      # content_safety sınıflandırıcı katmanı
+# ragas>=0.1.9,<0.3
+# datasets>=2.18,<4.0

@@ -1,0 +1,22 @@
+# Tehdit ve şiddet çağrısı kökleri
+#
+# Kategori tanımı: Çöltekin, Ç. (2020). "A Corpus of Turkish Offensive
+# Language on Social Media." LREC 2020 — OffensEval şemasında şiddet
+# tehdidi, hedefli aşağılamanın (targeted insult) en ağır alt kümesi
+# olarak ele alınır; bu yüzden severity_weights'te en yüksek ağırlığı
+# taşır (bkz. config/settings.yaml content_safety.category_severity).
+#
+# DÜZELTME: "zarar verece" boşluk içerdiği için hiçbir zaman eşleşmiyordu
+# (bkz. insult.txt'deki aynı hatanın notu). Tek kelimelik köklerle
+# değiştirildi.
+#
+# BİLİNEN SINIRLAMA: Tehdit dili doğası gereği tek kelimeden çok cümle
+# yapısına bağlıdır ("onu öldürürüm" tehdit, "kanser onu öldürdü" veya
+# "oyunda karakteri öldürdüm" değildir) — bu yüzden LDNOOBW gibi genel
+# geçer bir "tehdit sözlüğü" kaynağı yoktur; aşağıdaki kökler sözlük
+# anlamına dayanan temel şiddet fiilleridir, kurumun cümle/bağlam
+# düzeyinde ayrıca gözden geçirmesi gerekir.
+öldürecek
+dövecek
+yaralayacak
+vuracak

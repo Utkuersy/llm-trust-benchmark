@@ -1,0 +1,142 @@
+[
+  {
+    "question": "Parolalar en az kaç karakter olmalı?",
+    "answer": "Parolalar en az 14 karakter olmalı ve 90 günde bir değiştirilmelidir.",
+    "contexts": [
+      "# Kurumsal Bilgi Güvenliği Politikası\n\nPolitika sürümü 4.2, 12 Mart 2024 tarihinde yürürlüğe girmiştir.\nTüm çalışanlar yılda iki kez, toplam 6 saatlik güvenlik farkındalık\neğitimini tamamlamak zorundadır.\n\nParolalar en az 14 karakter uzunluğunda olmalı ve 90 günde bir\ndeğiştirilmelidir. Çok faktörlü kimlik doğrulama (MFA) tüm yönetici\nhesapları için zorunludur.\n\nGüvenlik ihlali şüphesi, olayın fark edilmesinden itibaren en geç\n4 saat içinde Güvenlik Operasyon Merkezi'ne bildirilmelidir.",
+      "# ML Model Yaşam Döngüsü Standardı\n\nÜretime alınan her model için bir Model Kartı hazırlanması zorunludur.\nModel Kartı en az şu bölümleri içerir: amaç, eğitim verisi, metrikler,\nbilinen sınırlamalar ve etik değerlendirme.\n\nModeller üretimde 3 ayda bir yeniden değerlendirilir. Performans,\ntemel çizginin 5 puan altına düşerse model geri çekilir.\n\nVeri kayması (data drift) izleme eşiği, popülasyon kararlılık indeksi\n(PSI) için 0.20 olarak belirlenmiştir.",
+      "# Veri Saklama ve İmha Prosedürü\n\nMüşteri işlem kayıtları 10 yıl boyunca saklanır. Pazarlama amaçlı\ndavranışsal veriler ise en fazla 24 ay saklanabilir.\n\nSilme talepleri (KVKK madde 7 kapsamında) 30 gün içinde\nsonuçlandırılır. Yedeklerden silme işlemi ek olarak 60 günü bulabilir.\n\nVeri sınıflandırması dört seviyelidir: Açık, Dahili, Gizli ve\nÇok Gizli. Çok Gizli veriler yalnızca şifreli disklerde tutulur.",
+      "# Erişim Yönetimi Kılavuzu\n\nErişim talepleri yönetici onayı ve veri sahibinin onayı ile iki\naşamalı olarak değerlendirilir. Onaysız erişim verilmez.\n\nAyrıcalıklı hesaplar için oturum süresi 15 dakika hareketsizlikten\nsonra sonlandırılır. Ayrıcalıklı erişim kayıtları 5 yıl saklanır.\n\nİşten ayrılan personelin tüm erişimleri, ayrılış gününün sonuna kadar\nkapatılır. Bu işlemin doğrulaması İnsan Kaynakları tarafından yapılır."
+    ],
+    "expected_sources": [
+      "sirket_politikasi.md"
+    ],
+    "ground_truth": "Parolalar en az 14 karakter olmalı ve 90 günde bir değiştirilmelidir."
+  },
+  {
+    "question": "Güvenlik ihlali kaç saat içinde bildirilmelidir?",
+    "answer": "İhlal şüphesi en geç 4 saat içinde Güvenlik Operasyon Merkezi'ne bildirilir.",
+    "contexts": [
+      "# Kurumsal Bilgi Güvenliği Politikası\n\nPolitika sürümü 4.2, 12 Mart 2024 tarihinde yürürlüğe girmiştir.\nTüm çalışanlar yılda iki kez, toplam 6 saatlik güvenlik farkındalık\neğitimini tamamlamak zorundadır.\n\nParolalar en az 14 karakter uzunluğunda olmalı ve 90 günde bir\ndeğiştirilmelidir. Çok faktörlü kimlik doğrulama (MFA) tüm yönetici\nhesapları için zorunludur.\n\nGüvenlik ihlali şüphesi, olayın fark edilmesinden itibaren en geç\n4 saat içinde Güvenlik Operasyon Merkezi'ne bildirilmelidir.",
+      "# Olay Müdahale Planı\n\nOlaylar dört önem seviyesine ayrılır: P1 (kritik), P2 (yüksek),\nP3 (orta), P4 (düşük). P1 olaylarda müdahale ekibi 30 dakika içinde\ntoplanır.\n\nKök neden analizi raporu, olayın kapanmasından sonraki 10 iş günü\niçinde yayımlanır. Rapor suçlayıcı olmayan (blameless) bir dille yazılır.\n\nMüşteriyi etkileyen olaylarda bildirim yükümlülüğü 72 saattir.",
+      "# Veri Saklama ve İmha Prosedürü\n\nMüşteri işlem kayıtları 10 yıl boyunca saklanır. Pazarlama amaçlı\ndavranışsal veriler ise en fazla 24 ay saklanabilir.\n\nSilme talepleri (KVKK madde 7 kapsamında) 30 gün içinde\nsonuçlandırılır. Yedeklerden silme işlemi ek olarak 60 günü bulabilir.\n\nVeri sınıflandırması dört seviyelidir: Açık, Dahili, Gizli ve\nÇok Gizli. Çok Gizli veriler yalnızca şifreli disklerde tutulur.",
+      "# ML Model Yaşam Döngüsü Standardı\n\nÜretime alınan her model için bir Model Kartı hazırlanması zorunludur.\nModel Kartı en az şu bölümleri içerir: amaç, eğitim verisi, metrikler,\nbilinen sınırlamalar ve etik değerlendirme.\n\nModeller üretimde 3 ayda bir yeniden değerlendirilir. Performans,\ntemel çizginin 5 puan altına düşerse model geri çekilir.\n\nVeri kayması (data drift) izleme eşiği, popülasyon kararlılık indeksi\n(PSI) için 0.20 olarak belirlenmiştir."
+    ],
+    "expected_sources": [
+      "sirket_politikasi.md"
+    ],
+    "ground_truth": "İhlal şüphesi en geç 4 saat içinde Güvenlik Operasyon Merkezi'ne bildirilir."
+  },
+  {
+    "question": "Müşteri işlem kayıtları ne kadar süre saklanır?",
+    "answer": "Müşteri işlem kayıtları 10 yıl boyunca saklanır.",
+    "contexts": [
+      "# Veri Saklama ve İmha Prosedürü\n\nMüşteri işlem kayıtları 10 yıl boyunca saklanır. Pazarlama amaçlı\ndavranışsal veriler ise en fazla 24 ay saklanabilir.\n\nSilme talepleri (KVKK madde 7 kapsamında) 30 gün içinde\nsonuçlandırılır. Yedeklerden silme işlemi ek olarak 60 günü bulabilir.\n\nVeri sınıflandırması dört seviyelidir: Açık, Dahili, Gizli ve\nÇok Gizli. Çok Gizli veriler yalnızca şifreli disklerde tutulur.",
+      "# Erişim Yönetimi Kılavuzu\n\nErişim talepleri yönetici onayı ve veri sahibinin onayı ile iki\naşamalı olarak değerlendirilir. Onaysız erişim verilmez.\n\nAyrıcalıklı hesaplar için oturum süresi 15 dakika hareketsizlikten\nsonra sonlandırılır. Ayrıcalıklı erişim kayıtları 5 yıl saklanır.\n\nİşten ayrılan personelin tüm erişimleri, ayrılış gününün sonuna kadar\nkapatılır. Bu işlemin doğrulaması İnsan Kaynakları tarafından yapılır.",
+      "# Olay Müdahale Planı\n\nOlaylar dört önem seviyesine ayrılır: P1 (kritik), P2 (yüksek),\nP3 (orta), P4 (düşük). P1 olaylarda müdahale ekibi 30 dakika içinde\ntoplanır.\n\nKök neden analizi raporu, olayın kapanmasından sonraki 10 iş günü\niçinde yayımlanır. Rapor suçlayıcı olmayan (blameless) bir dille yazılır.\n\nMüşteriyi etkileyen olaylarda bildirim yükümlülüğü 72 saattir.",
+      "# Kurumsal Bilgi Güvenliği Politikası\n\nPolitika sürümü 4.2, 12 Mart 2024 tarihinde yürürlüğe girmiştir.\nTüm çalışanlar yılda iki kez, toplam 6 saatlik güvenlik farkındalık\neğitimini tamamlamak zorundadır.\n\nParolalar en az 14 karakter uzunluğunda olmalı ve 90 günde bir\ndeğiştirilmelidir. Çok faktörlü kimlik doğrulama (MFA) tüm yönetici\nhesapları için zorunludur.\n\nGüvenlik ihlali şüphesi, olayın fark edilmesinden itibaren en geç\n4 saat içinde Güvenlik Operasyon Merkezi'ne bildirilmelidir."
+    ],
+    "expected_sources": [
+      "veri_saklama.md"
+    ],
+    "ground_truth": "Müşteri işlem kayıtları 10 yıl boyunca saklanır."
+  },
+  {
+    "question": "Pazarlama amaçlı davranışsal veriler en fazla ne kadar saklanabilir?",
+    "answer": "Pazarlama amaçlı davranışsal veriler en fazla 24 ay saklanabilir.",
+    "contexts": [
+      "# Veri Saklama ve İmha Prosedürü\n\nMüşteri işlem kayıtları 10 yıl boyunca saklanır. Pazarlama amaçlı\ndavranışsal veriler ise en fazla 24 ay saklanabilir.\n\nSilme talepleri (KVKK madde 7 kapsamında) 30 gün içinde\nsonuçlandırılır. Yedeklerden silme işlemi ek olarak 60 günü bulabilir.\n\nVeri sınıflandırması dört seviyelidir: Açık, Dahili, Gizli ve\nÇok Gizli. Çok Gizli veriler yalnızca şifreli disklerde tutulur.",
+      "# Kurumsal Bilgi Güvenliği Politikası\n\nPolitika sürümü 4.2, 12 Mart 2024 tarihinde yürürlüğe girmiştir.\nTüm çalışanlar yılda iki kez, toplam 6 saatlik güvenlik farkındalık\neğitimini tamamlamak zorundadır.\n\nParolalar en az 14 karakter uzunluğunda olmalı ve 90 günde bir\ndeğiştirilmelidir. Çok faktörlü kimlik doğrulama (MFA) tüm yönetici\nhesapları için zorunludur.\n\nGüvenlik ihlali şüphesi, olayın fark edilmesinden itibaren en geç\n4 saat içinde Güvenlik Operasyon Merkezi'ne bildirilmelidir.",
+      "# ML Model Yaşam Döngüsü Standardı\n\nÜretime alınan her model için bir Model Kartı hazırlanması zorunludur.\nModel Kartı en az şu bölümleri içerir: amaç, eğitim verisi, metrikler,\nbilinen sınırlamalar ve etik değerlendirme.\n\nModeller üretimde 3 ayda bir yeniden değerlendirilir. Performans,\ntemel çizginin 5 puan altına düşerse model geri çekilir.\n\nVeri kayması (data drift) izleme eşiği, popülasyon kararlılık indeksi\n(PSI) için 0.20 olarak belirlenmiştir.",
+      "# Erişim Yönetimi Kılavuzu\n\nErişim talepleri yönetici onayı ve veri sahibinin onayı ile iki\naşamalı olarak değerlendirilir. Onaysız erişim verilmez.\n\nAyrıcalıklı hesaplar için oturum süresi 15 dakika hareketsizlikten\nsonra sonlandırılır. Ayrıcalıklı erişim kayıtları 5 yıl saklanır.\n\nİşten ayrılan personelin tüm erişimleri, ayrılış gününün sonuna kadar\nkapatılır. Bu işlemin doğrulaması İnsan Kaynakları tarafından yapılır."
+    ],
+    "expected_sources": [
+      "veri_saklama.md"
+    ],
+    "ground_truth": "Pazarlama amaçlı davranışsal veriler en fazla 24 ay saklanabilir."
+  },
+  {
+    "question": "KVKK kapsamındaki silme talepleri kaç günde sonuçlandırılır?",
+    "answer": "Silme talepleri 30 gün içinde sonuçlandırılır; yedeklerden silme 60 günü bulabilir.",
+    "contexts": [
+      "# Veri Saklama ve İmha Prosedürü\n\nMüşteri işlem kayıtları 10 yıl boyunca saklanır. Pazarlama amaçlı\ndavranışsal veriler ise en fazla 24 ay saklanabilir.\n\nSilme talepleri (KVKK madde 7 kapsamında) 30 gün içinde\nsonuçlandırılır. Yedeklerden silme işlemi ek olarak 60 günü bulabilir.\n\nVeri sınıflandırması dört seviyelidir: Açık, Dahili, Gizli ve\nÇok Gizli. Çok Gizli veriler yalnızca şifreli disklerde tutulur.",
+      "# Erişim Yönetimi Kılavuzu\n\nErişim talepleri yönetici onayı ve veri sahibinin onayı ile iki\naşamalı olarak değerlendirilir. Onaysız erişim verilmez.\n\nAyrıcalıklı hesaplar için oturum süresi 15 dakika hareketsizlikten\nsonra sonlandırılır. Ayrıcalıklı erişim kayıtları 5 yıl saklanır.\n\nİşten ayrılan personelin tüm erişimleri, ayrılış gününün sonuna kadar\nkapatılır. Bu işlemin doğrulaması İnsan Kaynakları tarafından yapılır.",
+      "# ML Model Yaşam Döngüsü Standardı\n\nÜretime alınan her model için bir Model Kartı hazırlanması zorunludur.\nModel Kartı en az şu bölümleri içerir: amaç, eğitim verisi, metrikler,\nbilinen sınırlamalar ve etik değerlendirme.\n\nModeller üretimde 3 ayda bir yeniden değerlendirilir. Performans,\ntemel çizginin 5 puan altına düşerse model geri çekilir.\n\nVeri kayması (data drift) izleme eşiği, popülasyon kararlılık indeksi\n(PSI) için 0.20 olarak belirlenmiştir.",
+      "# Kurumsal Bilgi Güvenliği Politikası\n\nPolitika sürümü 4.2, 12 Mart 2024 tarihinde yürürlüğe girmiştir.\nTüm çalışanlar yılda iki kez, toplam 6 saatlik güvenlik farkındalık\neğitimini tamamlamak zorundadır.\n\nParolalar en az 14 karakter uzunluğunda olmalı ve 90 günde bir\ndeğiştirilmelidir. Çok faktörlü kimlik doğrulama (MFA) tüm yönetici\nhesapları için zorunludur.\n\nGüvenlik ihlali şüphesi, olayın fark edilmesinden itibaren en geç\n4 saat içinde Güvenlik Operasyon Merkezi'ne bildirilmelidir."
+    ],
+    "expected_sources": [
+      "veri_saklama.md"
+    ],
+    "ground_truth": "Silme talepleri 30 gün içinde sonuçlandırılır; yedeklerden silme 60 günü bulabilir."
+  },
+  {
+    "question": "Model Kartı hangi bölümleri içermelidir?",
+    "answer": "Model Kartı amaç, eğitim verisi, metrikler, bilinen sınırlamalar ve etik değerlendirme bölümlerini içerir.",
+    "contexts": [
+      "# ML Model Yaşam Döngüsü Standardı\n\nÜretime alınan her model için bir Model Kartı hazırlanması zorunludur.\nModel Kartı en az şu bölümleri içerir: amaç, eğitim verisi, metrikler,\nbilinen sınırlamalar ve etik değerlendirme.\n\nModeller üretimde 3 ayda bir yeniden değerlendirilir. Performans,\ntemel çizginin 5 puan altına düşerse model geri çekilir.\n\nVeri kayması (data drift) izleme eşiği, popülasyon kararlılık indeksi\n(PSI) için 0.20 olarak belirlenmiştir.",
+      "# Olay Müdahale Planı\n\nOlaylar dört önem seviyesine ayrılır: P1 (kritik), P2 (yüksek),\nP3 (orta), P4 (düşük). P1 olaylarda müdahale ekibi 30 dakika içinde\ntoplanır.\n\nKök neden analizi raporu, olayın kapanmasından sonraki 10 iş günü\niçinde yayımlanır. Rapor suçlayıcı olmayan (blameless) bir dille yazılır.\n\nMüşteriyi etkileyen olaylarda bildirim yükümlülüğü 72 saattir.",
+      "# Kurumsal Bilgi Güvenliği Politikası\n\nPolitika sürümü 4.2, 12 Mart 2024 tarihinde yürürlüğe girmiştir.\nTüm çalışanlar yılda iki kez, toplam 6 saatlik güvenlik farkındalık\neğitimini tamamlamak zorundadır.\n\nParolalar en az 14 karakter uzunluğunda olmalı ve 90 günde bir\ndeğiştirilmelidir. Çok faktörlü kimlik doğrulama (MFA) tüm yönetici\nhesapları için zorunludur.\n\nGüvenlik ihlali şüphesi, olayın fark edilmesinden itibaren en geç\n4 saat içinde Güvenlik Operasyon Merkezi'ne bildirilmelidir.",
+      "# Veri Saklama ve İmha Prosedürü\n\nMüşteri işlem kayıtları 10 yıl boyunca saklanır. Pazarlama amaçlı\ndavranışsal veriler ise en fazla 24 ay saklanabilir.\n\nSilme talepleri (KVKK madde 7 kapsamında) 30 gün içinde\nsonuçlandırılır. Yedeklerden silme işlemi ek olarak 60 günü bulabilir.\n\nVeri sınıflandırması dört seviyelidir: Açık, Dahili, Gizli ve\nÇok Gizli. Çok Gizli veriler yalnızca şifreli disklerde tutulur."
+    ],
+    "expected_sources": [
+      "model_yasam_dongusu.md"
+    ],
+    "ground_truth": "Model Kartı amaç, eğitim verisi, metrikler, bilinen sınırlamalar ve etik değerlendirme bölümlerini içerir."
+  },
+  {
+    "question": "Veri kayması izleme eşiği (PSI) kaçtır?",
+    "answer": "Popülasyon kararlılık indeksi (PSI) eşiği 0.20 olarak belirlenmiştir.",
+    "contexts": [
+      "# ML Model Yaşam Döngüsü Standardı\n\nÜretime alınan her model için bir Model Kartı hazırlanması zorunludur.\nModel Kartı en az şu bölümleri içerir: amaç, eğitim verisi, metrikler,\nbilinen sınırlamalar ve etik değerlendirme.\n\nModeller üretimde 3 ayda bir yeniden değerlendirilir. Performans,\ntemel çizginin 5 puan altına düşerse model geri çekilir.\n\nVeri kayması (data drift) izleme eşiği, popülasyon kararlılık indeksi\n(PSI) için 0.20 olarak belirlenmiştir.",
+      "# Veri Saklama ve İmha Prosedürü\n\nMüşteri işlem kayıtları 10 yıl boyunca saklanır. Pazarlama amaçlı\ndavranışsal veriler ise en fazla 24 ay saklanabilir.\n\nSilme talepleri (KVKK madde 7 kapsamında) 30 gün içinde\nsonuçlandırılır. Yedeklerden silme işlemi ek olarak 60 günü bulabilir.\n\nVeri sınıflandırması dört seviyelidir: Açık, Dahili, Gizli ve\nÇok Gizli. Çok Gizli veriler yalnızca şifreli disklerde tutulur.",
+      "# Erişim Yönetimi Kılavuzu\n\nErişim talepleri yönetici onayı ve veri sahibinin onayı ile iki\naşamalı olarak değerlendirilir. Onaysız erişim verilmez.\n\nAyrıcalıklı hesaplar için oturum süresi 15 dakika hareketsizlikten\nsonra sonlandırılır. Ayrıcalıklı erişim kayıtları 5 yıl saklanır.\n\nİşten ayrılan personelin tüm erişimleri, ayrılış gününün sonuna kadar\nkapatılır. Bu işlemin doğrulaması İnsan Kaynakları tarafından yapılır.",
+      "# Kurumsal Bilgi Güvenliği Politikası\n\nPolitika sürümü 4.2, 12 Mart 2024 tarihinde yürürlüğe girmiştir.\nTüm çalışanlar yılda iki kez, toplam 6 saatlik güvenlik farkındalık\neğitimini tamamlamak zorundadır.\n\nParolalar en az 14 karakter uzunluğunda olmalı ve 90 günde bir\ndeğiştirilmelidir. Çok faktörlü kimlik doğrulama (MFA) tüm yönetici\nhesapları için zorunludur.\n\nGüvenlik ihlali şüphesi, olayın fark edilmesinden itibaren en geç\n4 saat içinde Güvenlik Operasyon Merkezi'ne bildirilmelidir."
+    ],
+    "expected_sources": [
+      "model_yasam_dongusu.md"
+    ],
+    "ground_truth": "Popülasyon kararlılık indeksi (PSI) eşiği 0.20 olarak belirlenmiştir."
+  },
+  {
+    "question": "Ayrıcalıklı hesaplarda oturum ne kadar hareketsizlikten sonra sonlanır?",
+    "answer": "Ayrıcalıklı hesaplarda oturum 15 dakika hareketsizlikten sonra sonlandırılır.",
+    "contexts": [
+      "# Erişim Yönetimi Kılavuzu\n\nErişim talepleri yönetici onayı ve veri sahibinin onayı ile iki\naşamalı olarak değerlendirilir. Onaysız erişim verilmez.\n\nAyrıcalıklı hesaplar için oturum süresi 15 dakika hareketsizlikten\nsonra sonlandırılır. Ayrıcalıklı erişim kayıtları 5 yıl saklanır.\n\nİşten ayrılan personelin tüm erişimleri, ayrılış gününün sonuna kadar\nkapatılır. Bu işlemin doğrulaması İnsan Kaynakları tarafından yapılır.",
+      "# Kurumsal Bilgi Güvenliği Politikası\n\nPolitika sürümü 4.2, 12 Mart 2024 tarihinde yürürlüğe girmiştir.\nTüm çalışanlar yılda iki kez, toplam 6 saatlik güvenlik farkındalık\neğitimini tamamlamak zorundadır.\n\nParolalar en az 14 karakter uzunluğunda olmalı ve 90 günde bir\ndeğiştirilmelidir. Çok faktörlü kimlik doğrulama (MFA) tüm yönetici\nhesapları için zorunludur.\n\nGüvenlik ihlali şüphesi, olayın fark edilmesinden itibaren en geç\n4 saat içinde Güvenlik Operasyon Merkezi'ne bildirilmelidir.",
+      "# Veri Saklama ve İmha Prosedürü\n\nMüşteri işlem kayıtları 10 yıl boyunca saklanır. Pazarlama amaçlı\ndavranışsal veriler ise en fazla 24 ay saklanabilir.\n\nSilme talepleri (KVKK madde 7 kapsamında) 30 gün içinde\nsonuçlandırılır. Yedeklerden silme işlemi ek olarak 60 günü bulabilir.\n\nVeri sınıflandırması dört seviyelidir: Açık, Dahili, Gizli ve\nÇok Gizli. Çok Gizli veriler yalnızca şifreli disklerde tutulur.",
+      "# Olay Müdahale Planı\n\nOlaylar dört önem seviyesine ayrılır: P1 (kritik), P2 (yüksek),\nP3 (orta), P4 (düşük). P1 olaylarda müdahale ekibi 30 dakika içinde\ntoplanır.\n\nKök neden analizi raporu, olayın kapanmasından sonraki 10 iş günü\niçinde yayımlanır. Rapor suçlayıcı olmayan (blameless) bir dille yazılır.\n\nMüşteriyi etkileyen olaylarda bildirim yükümlülüğü 72 saattir."
+    ],
+    "expected_sources": [
+      "erisim_yonetimi.md"
+    ],
+    "ground_truth": "Ayrıcalıklı hesaplarda oturum 15 dakika hareketsizlikten sonra sonlandırılır."
+  },
+  {
+    "question": "P1 seviyesindeki olaylarda müdahale ekibi ne kadar sürede toplanır?",
+    "answer": "P1 olaylarda müdahale ekibi 30 dakika içinde toplanır.",
+    "contexts": [
+      "# Olay Müdahale Planı\n\nOlaylar dört önem seviyesine ayrılır: P1 (kritik), P2 (yüksek),\nP3 (orta), P4 (düşük). P1 olaylarda müdahale ekibi 30 dakika içinde\ntoplanır.\n\nKök neden analizi raporu, olayın kapanmasından sonraki 10 iş günü\niçinde yayımlanır. Rapor suçlayıcı olmayan (blameless) bir dille yazılır.\n\nMüşteriyi etkileyen olaylarda bildirim yükümlülüğü 72 saattir.",
+      "# Erişim Yönetimi Kılavuzu\n\nErişim talepleri yönetici onayı ve veri sahibinin onayı ile iki\naşamalı olarak değerlendirilir. Onaysız erişim verilmez.\n\nAyrıcalıklı hesaplar için oturum süresi 15 dakika hareketsizlikten\nsonra sonlandırılır. Ayrıcalıklı erişim kayıtları 5 yıl saklanır.\n\nİşten ayrılan personelin tüm erişimleri, ayrılış gününün sonuna kadar\nkapatılır. Bu işlemin doğrulaması İnsan Kaynakları tarafından yapılır.",
+      "# Kurumsal Bilgi Güvenliği Politikası\n\nPolitika sürümü 4.2, 12 Mart 2024 tarihinde yürürlüğe girmiştir.\nTüm çalışanlar yılda iki kez, toplam 6 saatlik güvenlik farkındalık\neğitimini tamamlamak zorundadır.\n\nParolalar en az 14 karakter uzunluğunda olmalı ve 90 günde bir\ndeğiştirilmelidir. Çok faktörlü kimlik doğrulama (MFA) tüm yönetici\nhesapları için zorunludur.\n\nGüvenlik ihlali şüphesi, olayın fark edilmesinden itibaren en geç\n4 saat içinde Güvenlik Operasyon Merkezi'ne bildirilmelidir.",
+      "# Veri Saklama ve İmha Prosedürü\n\nMüşteri işlem kayıtları 10 yıl boyunca saklanır. Pazarlama amaçlı\ndavranışsal veriler ise en fazla 24 ay saklanabilir.\n\nSilme talepleri (KVKK madde 7 kapsamında) 30 gün içinde\nsonuçlandırılır. Yedeklerden silme işlemi ek olarak 60 günü bulabilir.\n\nVeri sınıflandırması dört seviyelidir: Açık, Dahili, Gizli ve\nÇok Gizli. Çok Gizli veriler yalnızca şifreli disklerde tutulur."
+    ],
+    "expected_sources": [
+      "olay_mudahale.md"
+    ],
+    "ground_truth": "P1 olaylarda müdahale ekibi 30 dakika içinde toplanır."
+  },
+  {
+    "question": "Kök neden analizi raporu ne zaman yayımlanır?",
+    "answer": "Kök neden analizi raporu olayın kapanmasından sonraki 10 iş günü içinde yayımlanır.",
+    "contexts": [
+      "# Olay Müdahale Planı\n\nOlaylar dört önem seviyesine ayrılır: P1 (kritik), P2 (yüksek),\nP3 (orta), P4 (düşük). P1 olaylarda müdahale ekibi 30 dakika içinde\ntoplanır.\n\nKök neden analizi raporu, olayın kapanmasından sonraki 10 iş günü\niçinde yayımlanır. Rapor suçlayıcı olmayan (blameless) bir dille yazılır.\n\nMüşteriyi etkileyen olaylarda bildirim yükümlülüğü 72 saattir.",
+      "# Erişim Yönetimi Kılavuzu\n\nErişim talepleri yönetici onayı ve veri sahibinin onayı ile iki\naşamalı olarak değerlendirilir. Onaysız erişim verilmez.\n\nAyrıcalıklı hesaplar için oturum süresi 15 dakika hareketsizlikten\nsonra sonlandırılır. Ayrıcalıklı erişim kayıtları 5 yıl saklanır.\n\nİşten ayrılan personelin tüm erişimleri, ayrılış gününün sonuna kadar\nkapatılır. Bu işlemin doğrulaması İnsan Kaynakları tarafından yapılır.",
+      "# ML Model Yaşam Döngüsü Standardı\n\nÜretime alınan her model için bir Model Kartı hazırlanması zorunludur.\nModel Kartı en az şu bölümleri içerir: amaç, eğitim verisi, metrikler,\nbilinen sınırlamalar ve etik değerlendirme.\n\nModeller üretimde 3 ayda bir yeniden değerlendirilir. Performans,\ntemel çizginin 5 puan altına düşerse model geri çekilir.\n\nVeri kayması (data drift) izleme eşiği, popülasyon kararlılık indeksi\n(PSI) için 0.20 olarak belirlenmiştir.",
+      "# Kurumsal Bilgi Güvenliği Politikası\n\nPolitika sürümü 4.2, 12 Mart 2024 tarihinde yürürlüğe girmiştir.\nTüm çalışanlar yılda iki kez, toplam 6 saatlik güvenlik farkındalık\neğitimini tamamlamak zorundadır.\n\nParolalar en az 14 karakter uzunluğunda olmalı ve 90 günde bir\ndeğiştirilmelidir. Çok faktörlü kimlik doğrulama (MFA) tüm yönetici\nhesapları için zorunludur.\n\nGüvenlik ihlali şüphesi, olayın fark edilmesinden itibaren en geç\n4 saat içinde Güvenlik Operasyon Merkezi'ne bildirilmelidir."
+    ],
+    "expected_sources": [
+      "olay_mudahale.md"
+    ],
+    "ground_truth": "Kök neden analizi raporu olayın kapanmasından sonraki 10 iş günü içinde yayımlanır."
+  }
+]

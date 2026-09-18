@@ -1,0 +1,162 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.12"
+  # Ic ag davranisini CI'da da zorla: hicbir bilesen model indirmeye calismasin.
+  HF_HUB_OFFLINE: "1"
+  TRANSFORMERS_OFFLINE: "1"
+
+jobs:
+  lint:
+    name: Lint ve tip kontrolu
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Ruff
+        run: ruff check core capability rag llm_security scripts tests benchmark_engine.py app.py
+      - name: Pylint
+        run: pylint core capability rag llm_security benchmark_engine.py --fail-under=8.5
+      - name: mypy
+        run: mypy core capability rag llm_security --ignore-missing-imports
+
+  security:
+    name: Guvenlik taramasi
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Bandit
+        run: |
+          bandit -r core capability rag llm_security scripts benchmark_engine.py app.py \
+            -c pyproject.toml -f screen --severity-level medium
+      - name: pip-audit
+        run: pip-audit -r requirements.txt || true
+
+  test:
+    name: Test paketi
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: pytest
+        run: pytest tests/ -q --junitxml=junit.xml
+      - name: Test raporu
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit
+          path: junit.xml
+
+  smoke:
+    name: Uctan uca smoke test
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Veri hazirla
+        run: |
+          python -m rag.ingest --seed --reset
+          python -m scripts.generate_llm_outputs
+      - name: Degerlendirmeyi calistir
+        run: python benchmark_engine.py
+      - name: Sonuclarin tutarliligini dogrula
+        run: |
+          python - <<'PY'
+          from core.storage import fetch_track_b
+
+          rows = {row["model_name"]: row for row in fetch_track_b()}
+          assert rows, "Degerlendirme sonucu yok"
+
+          # 1) Kasitli zayif ornek, temiz orneklerden dusuk puan almalidir.
+          if "gemini" in rows and "gpt4" in rows:
+              assert rows["gemini"]["trust_score"] < rows["gpt4"]["trust_score"], \
+                  "Puanlama guvensiz ornegi ayirt edemiyor"
+
+          # 2) Pipeline izleme calismis olmalidir.
+          for name, row in rows.items():
+              assert row["pipeline_stages"] > 0, f"{name}: pipeline izi kaydedilmemis"
+
+          # 3) PII sizdiran modelin PII puani belirgin dusuk olmalidir.
+          if "gemini" in rows and "gpt4" in rows:
+              assert rows["gemini"]["pii_score"] < rows["gpt4"]["pii_score"], \
+                  "PII tarayicisi ayrim yapamiyor"
+          print("Smoke test gecti")
+          PY
+      - name: Agirlik duyarliligi
+        run: |
+          python - <<'PY'
+          # Agirlik secimi tartismaya aciktir; sonucun ona duyarli OLMADIGI
+          # gosterilmelidir. Farkli on ayarlarda siralama korunmalidir.
+          from core.config import get_settings
+          from benchmark_engine import run_benchmark
+
+          settings = get_settings()
+          orders = []
+          for preset in ("output_safety_first", "owasp_rank", "trustllm_equal"):
+              results = run_benchmark(preset=preset, with_trace=False, settings=settings)
+              order = [r.model_name for r in sorted(results, key=lambda r: -r.trust_score)]
+              print(preset, order)
+              orders.append(order)
+          assert len(set(map(tuple, orders))) == 1, \
+              "Model siralamasi agirlik on ayarina gore degisiyor"
+          print("Duyarlilik testi gecti: siralama on ayardan bagimsiz")
+          PY
+      - name: Ciktilar
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evaluation-results
+          path: results/
+
+  docker:
+    name: Docker imaji
+    runs-on: ubuntu-latest
+    needs: [lint, security]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: llm-trust:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Imaj ayaga kalkiyor mu
+        run: |
+          docker run --rm llm-trust:ci \
+            python -c "from core.config import get_settings; print(get_settings().project.name)"

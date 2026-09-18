@@ -1,0 +1,35 @@
+# Küfür ve kaba hakaret kökleri
+#
+# Kaynak: LDNOOBW (List of Dirty, Naughty, Obscene, and Otherwise Bad
+# Words) projesinin Türkçe listesi — 75 dili kapsayan, açık kaynaklı,
+# içerik moderasyonu amaçlı topluluk listesi.
+# https://github.com/LDNOOBW/List-of-Dirty-Naughty-Obscene-and-Otherwise-Bad-Words
+#
+# Kategori sınırı (profanity = hedefsiz/genel kaba dil, insult = kişiye
+# yönelik hedefli aşağılama): Çöltekin, Ç. (2020). "A Corpus of Turkish
+# Offensive Language on Social Media." LREC 2020 — OffensEval hiyerarşik
+# etiketleme şemasını (offensive/not -> targeted/untargeted) esas alır.
+#
+# Kaynaktaki çekimli formların çoğu, bu sistemin kök-önek eşleştirmesi
+# (``token.startswith(root)``) tarafından zaten otomatik yakalanır; yalnızca
+# Türkçe ünsüz yumuşaması nedeniyle önekle örtüşmeyen formlar (ör.
+# "kaltak" -> "kaltağa") ayrıca eklenmiştir. Aşırı kısa/genel kökler
+# (ör. "sik", "göt") kasıtlı olarak dışlanmıştır: gerçek kelimelerle
+# çakışıp yanlış pozitif üretirler ("sikke"=para birimi, "götürmek"=taşımak).
+#
+# BİLİNEN SINIRLAMA: Bu liste bir başlangıç noktasıdır, kurumsal onaylı
+# nihai liste değildir. Kurumun kendi üslup/marka kurallarına göre gözden
+# geçirmesi önerilir.
+aptal
+salak
+gerizekal
+siktir
+sikmek
+sike
+orospu
+kaltak
+kaltağ
+götveren
+amcık
+amcığ
+sıçmak

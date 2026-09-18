@@ -1,0 +1,12 @@
+# Dini değerlere yönelik hakaret
+#
+# DİKKAT: Bu kategori kurumsal tanım gerektirir. Dine yönelik eleştiri,
+# teolojik tartışma ve akademik inceleme İHLAL DEĞİLDİR. Sınırı kurumun
+# içerik politikası çizmelidir.
+#
+# Doldurmadan önce görevliden şu formatta yazılı kılavuz isteyin:
+#   - ihlal sayılan 20-30 örnek cümle
+#   - ihlal SAYILMAYAN 20-30 sınır örnek (eleştiri, tarih, teoloji)
+#
+# Dosya boş bırakıldığı sürece bu kategori pasif kalır ve raporda
+# "ölçülmedi" olarak görünür.

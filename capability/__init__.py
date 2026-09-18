@@ -1,0 +1,1 @@
+"""Model yetenek degerlendirme paketi."""

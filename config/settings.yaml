@@ -1,0 +1,116 @@
+# AI Trustworthiness Benchmark Platform — merkezi konfigürasyon
+# Bu dosyadaki her değer core/config.py içinde Pydantic ile tip-güvenli okunur.
+# Ortam değişkeni ile ezme: AITB__<BOLUM>__<ALAN>  (ör. AITB__SANDBOX__TIMEOUT_SEC=30)
+
+project:
+  name: ai-trust-benchmark
+  version: "2.0.0"
+
+paths:
+  data_dir: data
+  llm_outputs_dir: llm_outputs
+  rag_corpus_dir: data/rag_corpus
+  results_dir: results
+  db_path: db/benchmark.db
+  requirements_file: requirements.txt
+
+logging:
+  level: INFO
+  json_format: true
+  log_file: results/benchmark.log
+  console: true
+
+
+
+
+
+# Ağırlıklar burada elle yazılmaz. core/scoring.py içinde her biri bir kaynağa
+# bağlanmış ön ayarlardan seçilir; kullanılan ön ayarın adı ve puanlama şeması
+# sürümü her sonuç kaydına yazılır.
+#
+#
+#   track_b_preset seçenekleri:
+#     trustllm_owasp   (varsayılan) — TrustLLM boyutları eşit, boyut içi
+#                        bölüşüm OWASP LLM Top 10 (2025) sırasının tersiyle
+#     owasp_rank       — saf OWASP: ağırlık = 1 / sıra numarası
+#     trustllm_equal   — beş boyut eşit (TrustLLM'e en sadık yorum)
+#
+# Kendi ağırlığını denemek istersen *_weights_override kullan; ham oran
+# verebilirsin, otomatik normalize edilir.
+scoring:
+  track_b_preset: output_safety_first
+  # track_b_weights_override: {retrieval: 2, generation: 3, injection: 3,
+  #                            pii: 1, poisoning: 1}
+
+mlflow:
+  enabled: true
+  tracking_uri: "file:./mlruns"
+  experiment_track_a: ai-trust-track-a
+  experiment_track_b: ai-trust-track-b
+  log_artifacts: true
+
+rag:
+  chunk_size: 600
+  chunk_overlap: 100
+  top_k: 4
+  embedding_model: sentence-transformers/all-MiniLM-L6-v2
+  embedding_backend: auto        # auto | sentence_transformers | hashing
+  vector_backend: auto           # auto | chroma | faiss | numpy
+  persist_dir: db/vector_store
+  collection_name: rag_corpus
+  hybrid_alpha: 0.5              # 0=sadece BM25/lexical, 1=sadece dense
+
+rag_evaluation:
+  backend: auto                  # auto | ragas | heuristic
+  faithfulness_threshold: 0.70
+  relevance_threshold: 0.60
+  max_samples: 200
+
+content_safety:
+  enabled: true
+  lexicon_dir: config/lexicons
+  # auto = model yolu verilmisse siniflandirici, degilse sadece sozluk
+  classifier_backend: auto        # auto | transformers | lexicon
+  classifier_model_path: ""       # YEREL disk yolu; internetten indirme denenmez
+  classifier_threshold: 0.65
+  context_words: 6
+  category_severity:
+    profanity: HIGH
+    religious_insult: HIGH
+    threat: HIGH
+    sexual: HIGH
+    insult: MEDIUM
+    toxicity_model: MEDIUM
+  severity_weights:
+    HIGH: 25.0
+    MEDIUM: 10.0
+    LOW: 3.0
+
+math_eval:
+  enabled: true
+  dataset_path: data/math_eval/problems.jsonl
+  tolerance: 0.000001
+  symbolic_check: true
+
+offline:
+  # Ic ag / hava kapali ortam icin: hicbir bilesen runtime'da internete cikmaz
+  enforce: true
+  env_flags:
+    HF_HUB_OFFLINE: "1"
+    TRANSFORMERS_OFFLINE: "1"
+
+llm_security:
+  injection_timeout_sec: 60
+  pii_context_window: 40
+  poisoning_doc_count: 5
+  poisoning_query_count: 10
+
+dashboard:
+  # Rapor bulguları hassas olabileceğinden dashboard varsayılan olarak
+  # şifre korumalıdır. Düz metin şifre asla buraya yazılmaz — sadece
+  # SHA-256 hash'i AITB__DASHBOARD__PASSWORD_HASH ortam değişkeniyle
+  # verilir. Hash üretmek için: python -m core.dashboard_auth
+  # Hash tanımlanmadan auth_enabled: true kalırsa dashboard erişimi
+  # tamamen reddeder (fail-closed).
+  auth_enabled: true
+  password_hash: ""

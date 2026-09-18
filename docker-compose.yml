@@ -1,0 +1,99 @@
+# LLM Çıktı Güvenilirliği Platformu — servis tanımları
+#
+#   docker compose up dashboard          # dashboard (:8501)
+#   docker compose run --rm evaluate     # değerlendirme koşusu
+#   docker compose run --rm prepare      # korpus + örnek çıktı hazırlığı
+#   docker compose up mlflow             # deney takibi (:5000)
+
+services:
+  dashboard:
+    build: .
+    image: llm-trust:latest
+    container_name: llm-trust-dashboard
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./db:/app/db
+      - ./results:/app/results
+      - ./mlruns:/app/mlruns
+      # "Model Ekle" sekmesinden yuklenen dosyalar buraya yazilir; volume
+      # olmadan container yeniden olusturulunca kaybolurlar.
+      - ./llm_outputs:/app/llm_outputs
+    environment:
+      AITB__LOGGING__JSON_FORMAT: "true"
+      # Dashboard sifresi: python -m core.dashboard_auth ile hash uretip
+      # proje kokunde .env dosyasina AITB__DASHBOARD__PASSWORD_HASH=<hash>
+      # olarak yazin (.env repoya eklenmez). Bos birakilirsa erisim
+      # tamamen reddedilir (fail-closed).
+      AITB__DASHBOARD__PASSWORD_HASH: ${AITB__DASHBOARD__PASSWORD_HASH:-}
+    restart: unless-stopped
+
+  # Değerlendirme koşusu. Ağ erişimi kapalıdır: platform iç ağ / hava kapalı
+  # ortamda çalışacak şekilde tasarlandı ve hiçbir bileşen çalışma anında
+  # model veya veri indirmez.
+  evaluate:
+    build: .
+    image: llm-trust:latest
+    container_name: llm-trust-evaluate
+    command: ["python", "benchmark_engine.py"]
+    network_mode: "none"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 4g
+    tmpfs:
+      - /tmp:rw,size=128m
+    volumes:
+      - ./db:/app/db
+      - ./results:/app/results
+      - ./mlruns:/app/mlruns
+      - ./llm_outputs:/app/llm_outputs:ro
+      - ./data:/app/data:ro
+      - ./config:/app/config:ro
+    environment:
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      AITB__MLFLOW__TRACKING_URI: "file:/app/mlruns"
+      # read_only:true altinda /app'e yazilamaz; zehirlenme simulasyonunun
+      # onbellegi (settings.paths.poison_cache_dir) tek yazilabilir yer olan
+      # /tmp'e yonlendirilir. Aksi halde sessizce basarisiz olup poisoning
+      # skoru 0'a duser (bkz. llm_security/data_poisoning_sim.py).
+      AITB__PATHS__POISON_CACHE_DIR: "/tmp/cache_poison"
+    profiles: ["jobs"]
+
+  # Korpus indeksleme ve örnek çıktı üretimi. Bu adım embedding modeli
+  # indirebileceği için ağ erişimi açıktır; iç ağ kurulumunda modeli
+  # önceden diske koyup bu servisi de network_mode: none ile çalıştırın.
+  prepare:
+    build: .
+    image: llm-trust:latest
+    container_name: llm-trust-prepare
+    command:
+      - "sh"
+      - "-c"
+      - "python -m rag.ingest --seed --reset && python -m scripts.generate_llm_outputs"
+    volumes:
+      - ./db:/app/db
+      - ./data:/app/data
+      - ./llm_outputs:/app/llm_outputs
+      - ./config:/app/config:ro
+    profiles: ["jobs"]
+
+  mlflow:
+    build: .
+    image: llm-trust:latest
+    container_name: llm-trust-mlflow
+    command:
+      - "mlflow"
+      - "ui"
+      - "--host=0.0.0.0"
+      - "--port=5000"
+      - "--backend-store-uri=file:/app/mlruns"
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./mlruns:/app/mlruns
+    restart: unless-stopped
