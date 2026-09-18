@@ -1,142 +1,142 @@
 [
   {
-    "question": "Parolalar en az kaç karakter olmalı?",
-    "answer": "Parolalar en az 14 karakter olmalı ve 90 günde bir değiştirilmelidir.",
+    "question": "What is the minimum required password length?",
+    "answer": "Passwords must be at least 14 characters long and changed every 90 days.",
     "contexts": [
-      "# Kurumsal Bilgi Güvenliği Politikası\n\nPolitika sürümü 4.2, 12 Mart 2024 tarihinde yürürlüğe girmiştir.\nTüm çalışanlar yılda iki kez, toplam 6 saatlik güvenlik farkındalık\neğitimini tamamlamak zorundadır.\n\nParolalar en az 14 karakter uzunluğunda olmalı ve 90 günde bir\ndeğiştirilmelidir. Çok faktörlü kimlik doğrulama (MFA) tüm yönetici\nhesapları için zorunludur.\n\nGüvenlik ihlali şüphesi, olayın fark edilmesinden itibaren en geç\n4 saat içinde Güvenlik Operasyon Merkezi'ne bildirilmelidir.",
-      "# ML Model Yaşam Döngüsü Standardı\n\nÜretime alınan her model için bir Model Kartı hazırlanması zorunludur.\nModel Kartı en az şu bölümleri içerir: amaç, eğitim verisi, metrikler,\nbilinen sınırlamalar ve etik değerlendirme.\n\nModeller üretimde 3 ayda bir yeniden değerlendirilir. Performans,\ntemel çizginin 5 puan altına düşerse model geri çekilir.\n\nVeri kayması (data drift) izleme eşiği, popülasyon kararlılık indeksi\n(PSI) için 0.20 olarak belirlenmiştir.",
-      "# Veri Saklama ve İmha Prosedürü\n\nMüşteri işlem kayıtları 10 yıl boyunca saklanır. Pazarlama amaçlı\ndavranışsal veriler ise en fazla 24 ay saklanabilir.\n\nSilme talepleri (KVKK madde 7 kapsamında) 30 gün içinde\nsonuçlandırılır. Yedeklerden silme işlemi ek olarak 60 günü bulabilir.\n\nVeri sınıflandırması dört seviyelidir: Açık, Dahili, Gizli ve\nÇok Gizli. Çok Gizli veriler yalnızca şifreli disklerde tutulur.",
-      "# Erişim Yönetimi Kılavuzu\n\nErişim talepleri yönetici onayı ve veri sahibinin onayı ile iki\naşamalı olarak değerlendirilir. Onaysız erişim verilmez.\n\nAyrıcalıklı hesaplar için oturum süresi 15 dakika hareketsizlikten\nsonra sonlandırılır. Ayrıcalıklı erişim kayıtları 5 yıl saklanır.\n\nİşten ayrılan personelin tüm erişimleri, ayrılış gününün sonuna kadar\nkapatılır. Bu işlemin doğrulaması İnsan Kaynakları tarafından yapılır."
+      "# Incident Response Plan\n\nIncidents are classified into four severity levels: P1 (critical),\nP2 (high), P3 (medium), P4 (low). For P1 incidents, the response team\nassembles within 30 minutes.\n\nThe root cause analysis report is published within 10 business days\nafter the incident is closed. The report is written in a blameless\ntone.\n\nThe notification obligation for incidents affecting customers is 72\nhours.",
+      "# ML Model Lifecycle Standard\n\nEvery model deployed to production requires a Model Card. A Model Card\nmust contain at least the following sections: purpose, training data,\nmetrics, known limitations, and ethical review.\n\nProduction models are re-evaluated every 3 months. If performance drops\nmore than 5 points below baseline, the model is withdrawn.\n\nThe data drift monitoring threshold, measured by Population Stability\nIndex (PSI), is set at 0.20.",
+      "# Access Management Guide\n\nAccess requests are evaluated in two stages: manager approval and data\nowner approval. Access is never granted without both approvals.\n\nPrivileged account sessions are terminated after 15 minutes of\ninactivity. Privileged access logs are retained for 5 years.\n\nAll access for departing employees is revoked by the end of their last\nworking day. This action is verified by Human Resources.",
+      "# Corporate Information Security Policy\n\nPolicy version 4.2, effective March 12, 2024. All employees must complete\na total of 6 hours of security awareness training twice a year.\n\nPasswords must be at least 14 characters long and changed every 90 days.\nMulti-factor authentication (MFA) is mandatory for all administrator\naccounts.\n\nSuspected security incidents must be reported to the Security Operations\nCenter no later than 4 hours after detection."
     ],
     "expected_sources": [
-      "sirket_politikasi.md"
+      "security_policy.md"
     ],
-    "ground_truth": "Parolalar en az 14 karakter olmalı ve 90 günde bir değiştirilmelidir."
+    "ground_truth": "Passwords must be at least 14 characters long and changed every 90 days."
   },
   {
-    "question": "Güvenlik ihlali kaç saat içinde bildirilmelidir?",
-    "answer": "İhlal şüphesi en geç 4 saat içinde Güvenlik Operasyon Merkezi'ne bildirilir.",
+    "question": "Within how many hours must a security breach be reported?",
+    "answer": "A suspected breach must be reported to the Security Operations Center within 4 hours at the latest.",
     "contexts": [
-      "# Kurumsal Bilgi Güvenliği Politikası\n\nPolitika sürümü 4.2, 12 Mart 2024 tarihinde yürürlüğe girmiştir.\nTüm çalışanlar yılda iki kez, toplam 6 saatlik güvenlik farkındalık\neğitimini tamamlamak zorundadır.\n\nParolalar en az 14 karakter uzunluğunda olmalı ve 90 günde bir\ndeğiştirilmelidir. Çok faktörlü kimlik doğrulama (MFA) tüm yönetici\nhesapları için zorunludur.\n\nGüvenlik ihlali şüphesi, olayın fark edilmesinden itibaren en geç\n4 saat içinde Güvenlik Operasyon Merkezi'ne bildirilmelidir.",
-      "# Olay Müdahale Planı\n\nOlaylar dört önem seviyesine ayrılır: P1 (kritik), P2 (yüksek),\nP3 (orta), P4 (düşük). P1 olaylarda müdahale ekibi 30 dakika içinde\ntoplanır.\n\nKök neden analizi raporu, olayın kapanmasından sonraki 10 iş günü\niçinde yayımlanır. Rapor suçlayıcı olmayan (blameless) bir dille yazılır.\n\nMüşteriyi etkileyen olaylarda bildirim yükümlülüğü 72 saattir.",
-      "# Veri Saklama ve İmha Prosedürü\n\nMüşteri işlem kayıtları 10 yıl boyunca saklanır. Pazarlama amaçlı\ndavranışsal veriler ise en fazla 24 ay saklanabilir.\n\nSilme talepleri (KVKK madde 7 kapsamında) 30 gün içinde\nsonuçlandırılır. Yedeklerden silme işlemi ek olarak 60 günü bulabilir.\n\nVeri sınıflandırması dört seviyelidir: Açık, Dahili, Gizli ve\nÇok Gizli. Çok Gizli veriler yalnızca şifreli disklerde tutulur.",
-      "# ML Model Yaşam Döngüsü Standardı\n\nÜretime alınan her model için bir Model Kartı hazırlanması zorunludur.\nModel Kartı en az şu bölümleri içerir: amaç, eğitim verisi, metrikler,\nbilinen sınırlamalar ve etik değerlendirme.\n\nModeller üretimde 3 ayda bir yeniden değerlendirilir. Performans,\ntemel çizginin 5 puan altına düşerse model geri çekilir.\n\nVeri kayması (data drift) izleme eşiği, popülasyon kararlılık indeksi\n(PSI) için 0.20 olarak belirlenmiştir."
+      "# Corporate Information Security Policy\n\nPolicy version 4.2, effective March 12, 2024. All employees must complete\na total of 6 hours of security awareness training twice a year.\n\nPasswords must be at least 14 characters long and changed every 90 days.\nMulti-factor authentication (MFA) is mandatory for all administrator\naccounts.\n\nSuspected security incidents must be reported to the Security Operations\nCenter no later than 4 hours after detection.",
+      "# Incident Response Plan\n\nIncidents are classified into four severity levels: P1 (critical),\nP2 (high), P3 (medium), P4 (low). For P1 incidents, the response team\nassembles within 30 minutes.\n\nThe root cause analysis report is published within 10 business days\nafter the incident is closed. The report is written in a blameless\ntone.\n\nThe notification obligation for incidents affecting customers is 72\nhours.",
+      "# Data Retention and Disposal Procedure\n\nCustomer transaction records are retained for 10 years. Behavioral data\ncollected for marketing purposes may be retained for at most 24 months.\n\nDeletion requests (under applicable data protection regulation) are\ncompleted within 30 days; removal from backups may take an additional\n60 days.\n\nData is classified into four levels: Public, Internal, Confidential, and\nHighly Confidential. Highly Confidential data is stored only on encrypted\ndisks.",
+      "# ML Model Lifecycle Standard\n\nEvery model deployed to production requires a Model Card. A Model Card\nmust contain at least the following sections: purpose, training data,\nmetrics, known limitations, and ethical review.\n\nProduction models are re-evaluated every 3 months. If performance drops\nmore than 5 points below baseline, the model is withdrawn.\n\nThe data drift monitoring threshold, measured by Population Stability\nIndex (PSI), is set at 0.20."
     ],
     "expected_sources": [
-      "sirket_politikasi.md"
+      "security_policy.md"
     ],
-    "ground_truth": "İhlal şüphesi en geç 4 saat içinde Güvenlik Operasyon Merkezi'ne bildirilir."
+    "ground_truth": "A suspected breach must be reported to the Security Operations Center within 4 hours at the latest."
   },
   {
-    "question": "Müşteri işlem kayıtları ne kadar süre saklanır?",
-    "answer": "Müşteri işlem kayıtları 10 yıl boyunca saklanır.",
+    "question": "How long are customer transaction records retained?",
+    "answer": "Customer transaction records are retained for 10 years.",
     "contexts": [
-      "# Veri Saklama ve İmha Prosedürü\n\nMüşteri işlem kayıtları 10 yıl boyunca saklanır. Pazarlama amaçlı\ndavranışsal veriler ise en fazla 24 ay saklanabilir.\n\nSilme talepleri (KVKK madde 7 kapsamında) 30 gün içinde\nsonuçlandırılır. Yedeklerden silme işlemi ek olarak 60 günü bulabilir.\n\nVeri sınıflandırması dört seviyelidir: Açık, Dahili, Gizli ve\nÇok Gizli. Çok Gizli veriler yalnızca şifreli disklerde tutulur.",
-      "# Erişim Yönetimi Kılavuzu\n\nErişim talepleri yönetici onayı ve veri sahibinin onayı ile iki\naşamalı olarak değerlendirilir. Onaysız erişim verilmez.\n\nAyrıcalıklı hesaplar için oturum süresi 15 dakika hareketsizlikten\nsonra sonlandırılır. Ayrıcalıklı erişim kayıtları 5 yıl saklanır.\n\nİşten ayrılan personelin tüm erişimleri, ayrılış gününün sonuna kadar\nkapatılır. Bu işlemin doğrulaması İnsan Kaynakları tarafından yapılır.",
-      "# Olay Müdahale Planı\n\nOlaylar dört önem seviyesine ayrılır: P1 (kritik), P2 (yüksek),\nP3 (orta), P4 (düşük). P1 olaylarda müdahale ekibi 30 dakika içinde\ntoplanır.\n\nKök neden analizi raporu, olayın kapanmasından sonraki 10 iş günü\niçinde yayımlanır. Rapor suçlayıcı olmayan (blameless) bir dille yazılır.\n\nMüşteriyi etkileyen olaylarda bildirim yükümlülüğü 72 saattir.",
-      "# Kurumsal Bilgi Güvenliği Politikası\n\nPolitika sürümü 4.2, 12 Mart 2024 tarihinde yürürlüğe girmiştir.\nTüm çalışanlar yılda iki kez, toplam 6 saatlik güvenlik farkındalık\neğitimini tamamlamak zorundadır.\n\nParolalar en az 14 karakter uzunluğunda olmalı ve 90 günde bir\ndeğiştirilmelidir. Çok faktörlü kimlik doğrulama (MFA) tüm yönetici\nhesapları için zorunludur.\n\nGüvenlik ihlali şüphesi, olayın fark edilmesinden itibaren en geç\n4 saat içinde Güvenlik Operasyon Merkezi'ne bildirilmelidir."
+      "# Data Retention and Disposal Procedure\n\nCustomer transaction records are retained for 10 years. Behavioral data\ncollected for marketing purposes may be retained for at most 24 months.\n\nDeletion requests (under applicable data protection regulation) are\ncompleted within 30 days; removal from backups may take an additional\n60 days.\n\nData is classified into four levels: Public, Internal, Confidential, and\nHighly Confidential. Highly Confidential data is stored only on encrypted\ndisks.",
+      "# Access Management Guide\n\nAccess requests are evaluated in two stages: manager approval and data\nowner approval. Access is never granted without both approvals.\n\nPrivileged account sessions are terminated after 15 minutes of\ninactivity. Privileged access logs are retained for 5 years.\n\nAll access for departing employees is revoked by the end of their last\nworking day. This action is verified by Human Resources.",
+      "# Corporate Information Security Policy\n\nPolicy version 4.2, effective March 12, 2024. All employees must complete\na total of 6 hours of security awareness training twice a year.\n\nPasswords must be at least 14 characters long and changed every 90 days.\nMulti-factor authentication (MFA) is mandatory for all administrator\naccounts.\n\nSuspected security incidents must be reported to the Security Operations\nCenter no later than 4 hours after detection.",
+      "# Incident Response Plan\n\nIncidents are classified into four severity levels: P1 (critical),\nP2 (high), P3 (medium), P4 (low). For P1 incidents, the response team\nassembles within 30 minutes.\n\nThe root cause analysis report is published within 10 business days\nafter the incident is closed. The report is written in a blameless\ntone.\n\nThe notification obligation for incidents affecting customers is 72\nhours."
     ],
     "expected_sources": [
-      "veri_saklama.md"
+      "data_retention.md"
     ],
-    "ground_truth": "Müşteri işlem kayıtları 10 yıl boyunca saklanır."
+    "ground_truth": "Customer transaction records are retained for 10 years."
   },
   {
-    "question": "Pazarlama amaçlı davranışsal veriler en fazla ne kadar saklanabilir?",
-    "answer": "Pazarlama amaçlı davranışsal veriler en fazla 24 ay saklanabilir.",
+    "question": "What is the maximum retention period for marketing behavioral data?",
+    "answer": "Behavioral data collected for marketing purposes may be retained for at most 24 months.",
     "contexts": [
-      "# Veri Saklama ve İmha Prosedürü\n\nMüşteri işlem kayıtları 10 yıl boyunca saklanır. Pazarlama amaçlı\ndavranışsal veriler ise en fazla 24 ay saklanabilir.\n\nSilme talepleri (KVKK madde 7 kapsamında) 30 gün içinde\nsonuçlandırılır. Yedeklerden silme işlemi ek olarak 60 günü bulabilir.\n\nVeri sınıflandırması dört seviyelidir: Açık, Dahili, Gizli ve\nÇok Gizli. Çok Gizli veriler yalnızca şifreli disklerde tutulur.",
-      "# Kurumsal Bilgi Güvenliği Politikası\n\nPolitika sürümü 4.2, 12 Mart 2024 tarihinde yürürlüğe girmiştir.\nTüm çalışanlar yılda iki kez, toplam 6 saatlik güvenlik farkındalık\neğitimini tamamlamak zorundadır.\n\nParolalar en az 14 karakter uzunluğunda olmalı ve 90 günde bir\ndeğiştirilmelidir. Çok faktörlü kimlik doğrulama (MFA) tüm yönetici\nhesapları için zorunludur.\n\nGüvenlik ihlali şüphesi, olayın fark edilmesinden itibaren en geç\n4 saat içinde Güvenlik Operasyon Merkezi'ne bildirilmelidir.",
-      "# ML Model Yaşam Döngüsü Standardı\n\nÜretime alınan her model için bir Model Kartı hazırlanması zorunludur.\nModel Kartı en az şu bölümleri içerir: amaç, eğitim verisi, metrikler,\nbilinen sınırlamalar ve etik değerlendirme.\n\nModeller üretimde 3 ayda bir yeniden değerlendirilir. Performans,\ntemel çizginin 5 puan altına düşerse model geri çekilir.\n\nVeri kayması (data drift) izleme eşiği, popülasyon kararlılık indeksi\n(PSI) için 0.20 olarak belirlenmiştir.",
-      "# Erişim Yönetimi Kılavuzu\n\nErişim talepleri yönetici onayı ve veri sahibinin onayı ile iki\naşamalı olarak değerlendirilir. Onaysız erişim verilmez.\n\nAyrıcalıklı hesaplar için oturum süresi 15 dakika hareketsizlikten\nsonra sonlandırılır. Ayrıcalıklı erişim kayıtları 5 yıl saklanır.\n\nİşten ayrılan personelin tüm erişimleri, ayrılış gününün sonuna kadar\nkapatılır. Bu işlemin doğrulaması İnsan Kaynakları tarafından yapılır."
+      "# Data Retention and Disposal Procedure\n\nCustomer transaction records are retained for 10 years. Behavioral data\ncollected for marketing purposes may be retained for at most 24 months.\n\nDeletion requests (under applicable data protection regulation) are\ncompleted within 30 days; removal from backups may take an additional\n60 days.\n\nData is classified into four levels: Public, Internal, Confidential, and\nHighly Confidential. Highly Confidential data is stored only on encrypted\ndisks.",
+      "# Incident Response Plan\n\nIncidents are classified into four severity levels: P1 (critical),\nP2 (high), P3 (medium), P4 (low). For P1 incidents, the response team\nassembles within 30 minutes.\n\nThe root cause analysis report is published within 10 business days\nafter the incident is closed. The report is written in a blameless\ntone.\n\nThe notification obligation for incidents affecting customers is 72\nhours.",
+      "# Access Management Guide\n\nAccess requests are evaluated in two stages: manager approval and data\nowner approval. Access is never granted without both approvals.\n\nPrivileged account sessions are terminated after 15 minutes of\ninactivity. Privileged access logs are retained for 5 years.\n\nAll access for departing employees is revoked by the end of their last\nworking day. This action is verified by Human Resources.",
+      "# ML Model Lifecycle Standard\n\nEvery model deployed to production requires a Model Card. A Model Card\nmust contain at least the following sections: purpose, training data,\nmetrics, known limitations, and ethical review.\n\nProduction models are re-evaluated every 3 months. If performance drops\nmore than 5 points below baseline, the model is withdrawn.\n\nThe data drift monitoring threshold, measured by Population Stability\nIndex (PSI), is set at 0.20."
     ],
     "expected_sources": [
-      "veri_saklama.md"
+      "data_retention.md"
     ],
-    "ground_truth": "Pazarlama amaçlı davranışsal veriler en fazla 24 ay saklanabilir."
+    "ground_truth": "Behavioral data collected for marketing purposes may be retained for at most 24 months."
   },
   {
-    "question": "KVKK kapsamındaki silme talepleri kaç günde sonuçlandırılır?",
-    "answer": "Silme talepleri 30 gün içinde sonuçlandırılır; yedeklerden silme 60 günü bulabilir.",
+    "question": "Within how many days are data deletion requests completed?",
+    "answer": "Deletion requests are completed within 30 days; removal from backups may take an additional 60 days.",
     "contexts": [
-      "# Veri Saklama ve İmha Prosedürü\n\nMüşteri işlem kayıtları 10 yıl boyunca saklanır. Pazarlama amaçlı\ndavranışsal veriler ise en fazla 24 ay saklanabilir.\n\nSilme talepleri (KVKK madde 7 kapsamında) 30 gün içinde\nsonuçlandırılır. Yedeklerden silme işlemi ek olarak 60 günü bulabilir.\n\nVeri sınıflandırması dört seviyelidir: Açık, Dahili, Gizli ve\nÇok Gizli. Çok Gizli veriler yalnızca şifreli disklerde tutulur.",
-      "# Erişim Yönetimi Kılavuzu\n\nErişim talepleri yönetici onayı ve veri sahibinin onayı ile iki\naşamalı olarak değerlendirilir. Onaysız erişim verilmez.\n\nAyrıcalıklı hesaplar için oturum süresi 15 dakika hareketsizlikten\nsonra sonlandırılır. Ayrıcalıklı erişim kayıtları 5 yıl saklanır.\n\nİşten ayrılan personelin tüm erişimleri, ayrılış gününün sonuna kadar\nkapatılır. Bu işlemin doğrulaması İnsan Kaynakları tarafından yapılır.",
-      "# ML Model Yaşam Döngüsü Standardı\n\nÜretime alınan her model için bir Model Kartı hazırlanması zorunludur.\nModel Kartı en az şu bölümleri içerir: amaç, eğitim verisi, metrikler,\nbilinen sınırlamalar ve etik değerlendirme.\n\nModeller üretimde 3 ayda bir yeniden değerlendirilir. Performans,\ntemel çizginin 5 puan altına düşerse model geri çekilir.\n\nVeri kayması (data drift) izleme eşiği, popülasyon kararlılık indeksi\n(PSI) için 0.20 olarak belirlenmiştir.",
-      "# Kurumsal Bilgi Güvenliği Politikası\n\nPolitika sürümü 4.2, 12 Mart 2024 tarihinde yürürlüğe girmiştir.\nTüm çalışanlar yılda iki kez, toplam 6 saatlik güvenlik farkındalık\neğitimini tamamlamak zorundadır.\n\nParolalar en az 14 karakter uzunluğunda olmalı ve 90 günde bir\ndeğiştirilmelidir. Çok faktörlü kimlik doğrulama (MFA) tüm yönetici\nhesapları için zorunludur.\n\nGüvenlik ihlali şüphesi, olayın fark edilmesinden itibaren en geç\n4 saat içinde Güvenlik Operasyon Merkezi'ne bildirilmelidir."
+      "# Data Retention and Disposal Procedure\n\nCustomer transaction records are retained for 10 years. Behavioral data\ncollected for marketing purposes may be retained for at most 24 months.\n\nDeletion requests (under applicable data protection regulation) are\ncompleted within 30 days; removal from backups may take an additional\n60 days.\n\nData is classified into four levels: Public, Internal, Confidential, and\nHighly Confidential. Highly Confidential data is stored only on encrypted\ndisks.",
+      "# Incident Response Plan\n\nIncidents are classified into four severity levels: P1 (critical),\nP2 (high), P3 (medium), P4 (low). For P1 incidents, the response team\nassembles within 30 minutes.\n\nThe root cause analysis report is published within 10 business days\nafter the incident is closed. The report is written in a blameless\ntone.\n\nThe notification obligation for incidents affecting customers is 72\nhours.",
+      "# Access Management Guide\n\nAccess requests are evaluated in two stages: manager approval and data\nowner approval. Access is never granted without both approvals.\n\nPrivileged account sessions are terminated after 15 minutes of\ninactivity. Privileged access logs are retained for 5 years.\n\nAll access for departing employees is revoked by the end of their last\nworking day. This action is verified by Human Resources.",
+      "# ML Model Lifecycle Standard\n\nEvery model deployed to production requires a Model Card. A Model Card\nmust contain at least the following sections: purpose, training data,\nmetrics, known limitations, and ethical review.\n\nProduction models are re-evaluated every 3 months. If performance drops\nmore than 5 points below baseline, the model is withdrawn.\n\nThe data drift monitoring threshold, measured by Population Stability\nIndex (PSI), is set at 0.20."
     ],
     "expected_sources": [
-      "veri_saklama.md"
+      "data_retention.md"
     ],
-    "ground_truth": "Silme talepleri 30 gün içinde sonuçlandırılır; yedeklerden silme 60 günü bulabilir."
+    "ground_truth": "Deletion requests are completed within 30 days; removal from backups may take an additional 60 days."
   },
   {
-    "question": "Model Kartı hangi bölümleri içermelidir?",
-    "answer": "Model Kartı amaç, eğitim verisi, metrikler, bilinen sınırlamalar ve etik değerlendirme bölümlerini içerir.",
+    "question": "What sections must a Model Card include?",
+    "answer": "A Model Card must contain purpose, training data, metrics, known limitations, and ethical review.",
     "contexts": [
-      "# ML Model Yaşam Döngüsü Standardı\n\nÜretime alınan her model için bir Model Kartı hazırlanması zorunludur.\nModel Kartı en az şu bölümleri içerir: amaç, eğitim verisi, metrikler,\nbilinen sınırlamalar ve etik değerlendirme.\n\nModeller üretimde 3 ayda bir yeniden değerlendirilir. Performans,\ntemel çizginin 5 puan altına düşerse model geri çekilir.\n\nVeri kayması (data drift) izleme eşiği, popülasyon kararlılık indeksi\n(PSI) için 0.20 olarak belirlenmiştir.",
-      "# Olay Müdahale Planı\n\nOlaylar dört önem seviyesine ayrılır: P1 (kritik), P2 (yüksek),\nP3 (orta), P4 (düşük). P1 olaylarda müdahale ekibi 30 dakika içinde\ntoplanır.\n\nKök neden analizi raporu, olayın kapanmasından sonraki 10 iş günü\niçinde yayımlanır. Rapor suçlayıcı olmayan (blameless) bir dille yazılır.\n\nMüşteriyi etkileyen olaylarda bildirim yükümlülüğü 72 saattir.",
-      "# Kurumsal Bilgi Güvenliği Politikası\n\nPolitika sürümü 4.2, 12 Mart 2024 tarihinde yürürlüğe girmiştir.\nTüm çalışanlar yılda iki kez, toplam 6 saatlik güvenlik farkındalık\neğitimini tamamlamak zorundadır.\n\nParolalar en az 14 karakter uzunluğunda olmalı ve 90 günde bir\ndeğiştirilmelidir. Çok faktörlü kimlik doğrulama (MFA) tüm yönetici\nhesapları için zorunludur.\n\nGüvenlik ihlali şüphesi, olayın fark edilmesinden itibaren en geç\n4 saat içinde Güvenlik Operasyon Merkezi'ne bildirilmelidir.",
-      "# Veri Saklama ve İmha Prosedürü\n\nMüşteri işlem kayıtları 10 yıl boyunca saklanır. Pazarlama amaçlı\ndavranışsal veriler ise en fazla 24 ay saklanabilir.\n\nSilme talepleri (KVKK madde 7 kapsamında) 30 gün içinde\nsonuçlandırılır. Yedeklerden silme işlemi ek olarak 60 günü bulabilir.\n\nVeri sınıflandırması dört seviyelidir: Açık, Dahili, Gizli ve\nÇok Gizli. Çok Gizli veriler yalnızca şifreli disklerde tutulur."
+      "# ML Model Lifecycle Standard\n\nEvery model deployed to production requires a Model Card. A Model Card\nmust contain at least the following sections: purpose, training data,\nmetrics, known limitations, and ethical review.\n\nProduction models are re-evaluated every 3 months. If performance drops\nmore than 5 points below baseline, the model is withdrawn.\n\nThe data drift monitoring threshold, measured by Population Stability\nIndex (PSI), is set at 0.20.",
+      "# Corporate Information Security Policy\n\nPolicy version 4.2, effective March 12, 2024. All employees must complete\na total of 6 hours of security awareness training twice a year.\n\nPasswords must be at least 14 characters long and changed every 90 days.\nMulti-factor authentication (MFA) is mandatory for all administrator\naccounts.\n\nSuspected security incidents must be reported to the Security Operations\nCenter no later than 4 hours after detection.",
+      "# Incident Response Plan\n\nIncidents are classified into four severity levels: P1 (critical),\nP2 (high), P3 (medium), P4 (low). For P1 incidents, the response team\nassembles within 30 minutes.\n\nThe root cause analysis report is published within 10 business days\nafter the incident is closed. The report is written in a blameless\ntone.\n\nThe notification obligation for incidents affecting customers is 72\nhours.",
+      "# Data Retention and Disposal Procedure\n\nCustomer transaction records are retained for 10 years. Behavioral data\ncollected for marketing purposes may be retained for at most 24 months.\n\nDeletion requests (under applicable data protection regulation) are\ncompleted within 30 days; removal from backups may take an additional\n60 days.\n\nData is classified into four levels: Public, Internal, Confidential, and\nHighly Confidential. Highly Confidential data is stored only on encrypted\ndisks."
     ],
     "expected_sources": [
-      "model_yasam_dongusu.md"
+      "model_lifecycle.md"
     ],
-    "ground_truth": "Model Kartı amaç, eğitim verisi, metrikler, bilinen sınırlamalar ve etik değerlendirme bölümlerini içerir."
+    "ground_truth": "A Model Card must contain purpose, training data, metrics, known limitations, and ethical review."
   },
   {
-    "question": "Veri kayması izleme eşiği (PSI) kaçtır?",
-    "answer": "Popülasyon kararlılık indeksi (PSI) eşiği 0.20 olarak belirlenmiştir.",
+    "question": "What is the data drift monitoring threshold (PSI)?",
+    "answer": "The Population Stability Index (PSI) threshold is set at 0.20.",
     "contexts": [
-      "# ML Model Yaşam Döngüsü Standardı\n\nÜretime alınan her model için bir Model Kartı hazırlanması zorunludur.\nModel Kartı en az şu bölümleri içerir: amaç, eğitim verisi, metrikler,\nbilinen sınırlamalar ve etik değerlendirme.\n\nModeller üretimde 3 ayda bir yeniden değerlendirilir. Performans,\ntemel çizginin 5 puan altına düşerse model geri çekilir.\n\nVeri kayması (data drift) izleme eşiği, popülasyon kararlılık indeksi\n(PSI) için 0.20 olarak belirlenmiştir.",
-      "# Veri Saklama ve İmha Prosedürü\n\nMüşteri işlem kayıtları 10 yıl boyunca saklanır. Pazarlama amaçlı\ndavranışsal veriler ise en fazla 24 ay saklanabilir.\n\nSilme talepleri (KVKK madde 7 kapsamında) 30 gün içinde\nsonuçlandırılır. Yedeklerden silme işlemi ek olarak 60 günü bulabilir.\n\nVeri sınıflandırması dört seviyelidir: Açık, Dahili, Gizli ve\nÇok Gizli. Çok Gizli veriler yalnızca şifreli disklerde tutulur.",
-      "# Erişim Yönetimi Kılavuzu\n\nErişim talepleri yönetici onayı ve veri sahibinin onayı ile iki\naşamalı olarak değerlendirilir. Onaysız erişim verilmez.\n\nAyrıcalıklı hesaplar için oturum süresi 15 dakika hareketsizlikten\nsonra sonlandırılır. Ayrıcalıklı erişim kayıtları 5 yıl saklanır.\n\nİşten ayrılan personelin tüm erişimleri, ayrılış gününün sonuna kadar\nkapatılır. Bu işlemin doğrulaması İnsan Kaynakları tarafından yapılır.",
-      "# Kurumsal Bilgi Güvenliği Politikası\n\nPolitika sürümü 4.2, 12 Mart 2024 tarihinde yürürlüğe girmiştir.\nTüm çalışanlar yılda iki kez, toplam 6 saatlik güvenlik farkındalık\neğitimini tamamlamak zorundadır.\n\nParolalar en az 14 karakter uzunluğunda olmalı ve 90 günde bir\ndeğiştirilmelidir. Çok faktörlü kimlik doğrulama (MFA) tüm yönetici\nhesapları için zorunludur.\n\nGüvenlik ihlali şüphesi, olayın fark edilmesinden itibaren en geç\n4 saat içinde Güvenlik Operasyon Merkezi'ne bildirilmelidir."
+      "# ML Model Lifecycle Standard\n\nEvery model deployed to production requires a Model Card. A Model Card\nmust contain at least the following sections: purpose, training data,\nmetrics, known limitations, and ethical review.\n\nProduction models are re-evaluated every 3 months. If performance drops\nmore than 5 points below baseline, the model is withdrawn.\n\nThe data drift monitoring threshold, measured by Population Stability\nIndex (PSI), is set at 0.20.",
+      "# Incident Response Plan\n\nIncidents are classified into four severity levels: P1 (critical),\nP2 (high), P3 (medium), P4 (low). For P1 incidents, the response team\nassembles within 30 minutes.\n\nThe root cause analysis report is published within 10 business days\nafter the incident is closed. The report is written in a blameless\ntone.\n\nThe notification obligation for incidents affecting customers is 72\nhours.",
+      "# Access Management Guide\n\nAccess requests are evaluated in two stages: manager approval and data\nowner approval. Access is never granted without both approvals.\n\nPrivileged account sessions are terminated after 15 minutes of\ninactivity. Privileged access logs are retained for 5 years.\n\nAll access for departing employees is revoked by the end of their last\nworking day. This action is verified by Human Resources.",
+      "# Data Retention and Disposal Procedure\n\nCustomer transaction records are retained for 10 years. Behavioral data\ncollected for marketing purposes may be retained for at most 24 months.\n\nDeletion requests (under applicable data protection regulation) are\ncompleted within 30 days; removal from backups may take an additional\n60 days.\n\nData is classified into four levels: Public, Internal, Confidential, and\nHighly Confidential. Highly Confidential data is stored only on encrypted\ndisks."
     ],
     "expected_sources": [
-      "model_yasam_dongusu.md"
+      "model_lifecycle.md"
     ],
-    "ground_truth": "Popülasyon kararlılık indeksi (PSI) eşiği 0.20 olarak belirlenmiştir."
+    "ground_truth": "The Population Stability Index (PSI) threshold is set at 0.20."
   },
   {
-    "question": "Ayrıcalıklı hesaplarda oturum ne kadar hareketsizlikten sonra sonlanır?",
-    "answer": "Ayrıcalıklı hesaplarda oturum 15 dakika hareketsizlikten sonra sonlandırılır.",
+    "question": "After how long of inactivity does a privileged account session end?",
+    "answer": "Privileged account sessions are terminated after 15 minutes of inactivity.",
     "contexts": [
-      "# Erişim Yönetimi Kılavuzu\n\nErişim talepleri yönetici onayı ve veri sahibinin onayı ile iki\naşamalı olarak değerlendirilir. Onaysız erişim verilmez.\n\nAyrıcalıklı hesaplar için oturum süresi 15 dakika hareketsizlikten\nsonra sonlandırılır. Ayrıcalıklı erişim kayıtları 5 yıl saklanır.\n\nİşten ayrılan personelin tüm erişimleri, ayrılış gününün sonuna kadar\nkapatılır. Bu işlemin doğrulaması İnsan Kaynakları tarafından yapılır.",
-      "# Kurumsal Bilgi Güvenliği Politikası\n\nPolitika sürümü 4.2, 12 Mart 2024 tarihinde yürürlüğe girmiştir.\nTüm çalışanlar yılda iki kez, toplam 6 saatlik güvenlik farkındalık\neğitimini tamamlamak zorundadır.\n\nParolalar en az 14 karakter uzunluğunda olmalı ve 90 günde bir\ndeğiştirilmelidir. Çok faktörlü kimlik doğrulama (MFA) tüm yönetici\nhesapları için zorunludur.\n\nGüvenlik ihlali şüphesi, olayın fark edilmesinden itibaren en geç\n4 saat içinde Güvenlik Operasyon Merkezi'ne bildirilmelidir.",
-      "# Veri Saklama ve İmha Prosedürü\n\nMüşteri işlem kayıtları 10 yıl boyunca saklanır. Pazarlama amaçlı\ndavranışsal veriler ise en fazla 24 ay saklanabilir.\n\nSilme talepleri (KVKK madde 7 kapsamında) 30 gün içinde\nsonuçlandırılır. Yedeklerden silme işlemi ek olarak 60 günü bulabilir.\n\nVeri sınıflandırması dört seviyelidir: Açık, Dahili, Gizli ve\nÇok Gizli. Çok Gizli veriler yalnızca şifreli disklerde tutulur.",
-      "# Olay Müdahale Planı\n\nOlaylar dört önem seviyesine ayrılır: P1 (kritik), P2 (yüksek),\nP3 (orta), P4 (düşük). P1 olaylarda müdahale ekibi 30 dakika içinde\ntoplanır.\n\nKök neden analizi raporu, olayın kapanmasından sonraki 10 iş günü\niçinde yayımlanır. Rapor suçlayıcı olmayan (blameless) bir dille yazılır.\n\nMüşteriyi etkileyen olaylarda bildirim yükümlülüğü 72 saattir."
+      "# Access Management Guide\n\nAccess requests are evaluated in two stages: manager approval and data\nowner approval. Access is never granted without both approvals.\n\nPrivileged account sessions are terminated after 15 minutes of\ninactivity. Privileged access logs are retained for 5 years.\n\nAll access for departing employees is revoked by the end of their last\nworking day. This action is verified by Human Resources.",
+      "# Corporate Information Security Policy\n\nPolicy version 4.2, effective March 12, 2024. All employees must complete\na total of 6 hours of security awareness training twice a year.\n\nPasswords must be at least 14 characters long and changed every 90 days.\nMulti-factor authentication (MFA) is mandatory for all administrator\naccounts.\n\nSuspected security incidents must be reported to the Security Operations\nCenter no later than 4 hours after detection.",
+      "# Incident Response Plan\n\nIncidents are classified into four severity levels: P1 (critical),\nP2 (high), P3 (medium), P4 (low). For P1 incidents, the response team\nassembles within 30 minutes.\n\nThe root cause analysis report is published within 10 business days\nafter the incident is closed. The report is written in a blameless\ntone.\n\nThe notification obligation for incidents affecting customers is 72\nhours.",
+      "# ML Model Lifecycle Standard\n\nEvery model deployed to production requires a Model Card. A Model Card\nmust contain at least the following sections: purpose, training data,\nmetrics, known limitations, and ethical review.\n\nProduction models are re-evaluated every 3 months. If performance drops\nmore than 5 points below baseline, the model is withdrawn.\n\nThe data drift monitoring threshold, measured by Population Stability\nIndex (PSI), is set at 0.20."
     ],
     "expected_sources": [
-      "erisim_yonetimi.md"
+      "access_management.md"
     ],
-    "ground_truth": "Ayrıcalıklı hesaplarda oturum 15 dakika hareketsizlikten sonra sonlandırılır."
+    "ground_truth": "Privileged account sessions are terminated after 15 minutes of inactivity."
   },
   {
-    "question": "P1 seviyesindeki olaylarda müdahale ekibi ne kadar sürede toplanır?",
-    "answer": "P1 olaylarda müdahale ekibi 30 dakika içinde toplanır.",
+    "question": "How quickly does the response team assemble for a P1 incident?",
+    "answer": "For P1 incidents, the response team assembles within 30 minutes.",
     "contexts": [
-      "# Olay Müdahale Planı\n\nOlaylar dört önem seviyesine ayrılır: P1 (kritik), P2 (yüksek),\nP3 (orta), P4 (düşük). P1 olaylarda müdahale ekibi 30 dakika içinde\ntoplanır.\n\nKök neden analizi raporu, olayın kapanmasından sonraki 10 iş günü\niçinde yayımlanır. Rapor suçlayıcı olmayan (blameless) bir dille yazılır.\n\nMüşteriyi etkileyen olaylarda bildirim yükümlülüğü 72 saattir.",
-      "# Erişim Yönetimi Kılavuzu\n\nErişim talepleri yönetici onayı ve veri sahibinin onayı ile iki\naşamalı olarak değerlendirilir. Onaysız erişim verilmez.\n\nAyrıcalıklı hesaplar için oturum süresi 15 dakika hareketsizlikten\nsonra sonlandırılır. Ayrıcalıklı erişim kayıtları 5 yıl saklanır.\n\nİşten ayrılan personelin tüm erişimleri, ayrılış gününün sonuna kadar\nkapatılır. Bu işlemin doğrulaması İnsan Kaynakları tarafından yapılır.",
-      "# Kurumsal Bilgi Güvenliği Politikası\n\nPolitika sürümü 4.2, 12 Mart 2024 tarihinde yürürlüğe girmiştir.\nTüm çalışanlar yılda iki kez, toplam 6 saatlik güvenlik farkındalık\neğitimini tamamlamak zorundadır.\n\nParolalar en az 14 karakter uzunluğunda olmalı ve 90 günde bir\ndeğiştirilmelidir. Çok faktörlü kimlik doğrulama (MFA) tüm yönetici\nhesapları için zorunludur.\n\nGüvenlik ihlali şüphesi, olayın fark edilmesinden itibaren en geç\n4 saat içinde Güvenlik Operasyon Merkezi'ne bildirilmelidir.",
-      "# Veri Saklama ve İmha Prosedürü\n\nMüşteri işlem kayıtları 10 yıl boyunca saklanır. Pazarlama amaçlı\ndavranışsal veriler ise en fazla 24 ay saklanabilir.\n\nSilme talepleri (KVKK madde 7 kapsamında) 30 gün içinde\nsonuçlandırılır. Yedeklerden silme işlemi ek olarak 60 günü bulabilir.\n\nVeri sınıflandırması dört seviyelidir: Açık, Dahili, Gizli ve\nÇok Gizli. Çok Gizli veriler yalnızca şifreli disklerde tutulur."
+      "# Incident Response Plan\n\nIncidents are classified into four severity levels: P1 (critical),\nP2 (high), P3 (medium), P4 (low). For P1 incidents, the response team\nassembles within 30 minutes.\n\nThe root cause analysis report is published within 10 business days\nafter the incident is closed. The report is written in a blameless\ntone.\n\nThe notification obligation for incidents affecting customers is 72\nhours.",
+      "# Corporate Information Security Policy\n\nPolicy version 4.2, effective March 12, 2024. All employees must complete\na total of 6 hours of security awareness training twice a year.\n\nPasswords must be at least 14 characters long and changed every 90 days.\nMulti-factor authentication (MFA) is mandatory for all administrator\naccounts.\n\nSuspected security incidents must be reported to the Security Operations\nCenter no later than 4 hours after detection.",
+      "# ML Model Lifecycle Standard\n\nEvery model deployed to production requires a Model Card. A Model Card\nmust contain at least the following sections: purpose, training data,\nmetrics, known limitations, and ethical review.\n\nProduction models are re-evaluated every 3 months. If performance drops\nmore than 5 points below baseline, the model is withdrawn.\n\nThe data drift monitoring threshold, measured by Population Stability\nIndex (PSI), is set at 0.20.",
+      "# Data Retention and Disposal Procedure\n\nCustomer transaction records are retained for 10 years. Behavioral data\ncollected for marketing purposes may be retained for at most 24 months.\n\nDeletion requests (under applicable data protection regulation) are\ncompleted within 30 days; removal from backups may take an additional\n60 days.\n\nData is classified into four levels: Public, Internal, Confidential, and\nHighly Confidential. Highly Confidential data is stored only on encrypted\ndisks."
     ],
     "expected_sources": [
-      "olay_mudahale.md"
+      "incident_response.md"
     ],
-    "ground_truth": "P1 olaylarda müdahale ekibi 30 dakika içinde toplanır."
+    "ground_truth": "For P1 incidents, the response team assembles within 30 minutes."
   },
   {
-    "question": "Kök neden analizi raporu ne zaman yayımlanır?",
-    "answer": "Kök neden analizi raporu olayın kapanmasından sonraki 10 iş günü içinde yayımlanır.",
+    "question": "When is the root cause analysis report published?",
+    "answer": "The root cause analysis report is published within 10 business days after the incident is closed.",
     "contexts": [
-      "# Olay Müdahale Planı\n\nOlaylar dört önem seviyesine ayrılır: P1 (kritik), P2 (yüksek),\nP3 (orta), P4 (düşük). P1 olaylarda müdahale ekibi 30 dakika içinde\ntoplanır.\n\nKök neden analizi raporu, olayın kapanmasından sonraki 10 iş günü\niçinde yayımlanır. Rapor suçlayıcı olmayan (blameless) bir dille yazılır.\n\nMüşteriyi etkileyen olaylarda bildirim yükümlülüğü 72 saattir.",
-      "# Erişim Yönetimi Kılavuzu\n\nErişim talepleri yönetici onayı ve veri sahibinin onayı ile iki\naşamalı olarak değerlendirilir. Onaysız erişim verilmez.\n\nAyrıcalıklı hesaplar için oturum süresi 15 dakika hareketsizlikten\nsonra sonlandırılır. Ayrıcalıklı erişim kayıtları 5 yıl saklanır.\n\nİşten ayrılan personelin tüm erişimleri, ayrılış gününün sonuna kadar\nkapatılır. Bu işlemin doğrulaması İnsan Kaynakları tarafından yapılır.",
-      "# ML Model Yaşam Döngüsü Standardı\n\nÜretime alınan her model için bir Model Kartı hazırlanması zorunludur.\nModel Kartı en az şu bölümleri içerir: amaç, eğitim verisi, metrikler,\nbilinen sınırlamalar ve etik değerlendirme.\n\nModeller üretimde 3 ayda bir yeniden değerlendirilir. Performans,\ntemel çizginin 5 puan altına düşerse model geri çekilir.\n\nVeri kayması (data drift) izleme eşiği, popülasyon kararlılık indeksi\n(PSI) için 0.20 olarak belirlenmiştir.",
-      "# Kurumsal Bilgi Güvenliği Politikası\n\nPolitika sürümü 4.2, 12 Mart 2024 tarihinde yürürlüğe girmiştir.\nTüm çalışanlar yılda iki kez, toplam 6 saatlik güvenlik farkındalık\neğitimini tamamlamak zorundadır.\n\nParolalar en az 14 karakter uzunluğunda olmalı ve 90 günde bir\ndeğiştirilmelidir. Çok faktörlü kimlik doğrulama (MFA) tüm yönetici\nhesapları için zorunludur.\n\nGüvenlik ihlali şüphesi, olayın fark edilmesinden itibaren en geç\n4 saat içinde Güvenlik Operasyon Merkezi'ne bildirilmelidir."
+      "# Incident Response Plan\n\nIncidents are classified into four severity levels: P1 (critical),\nP2 (high), P3 (medium), P4 (low). For P1 incidents, the response team\nassembles within 30 minutes.\n\nThe root cause analysis report is published within 10 business days\nafter the incident is closed. The report is written in a blameless\ntone.\n\nThe notification obligation for incidents affecting customers is 72\nhours.",
+      "# Access Management Guide\n\nAccess requests are evaluated in two stages: manager approval and data\nowner approval. Access is never granted without both approvals.\n\nPrivileged account sessions are terminated after 15 minutes of\ninactivity. Privileged access logs are retained for 5 years.\n\nAll access for departing employees is revoked by the end of their last\nworking day. This action is verified by Human Resources.",
+      "# ML Model Lifecycle Standard\n\nEvery model deployed to production requires a Model Card. A Model Card\nmust contain at least the following sections: purpose, training data,\nmetrics, known limitations, and ethical review.\n\nProduction models are re-evaluated every 3 months. If performance drops\nmore than 5 points below baseline, the model is withdrawn.\n\nThe data drift monitoring threshold, measured by Population Stability\nIndex (PSI), is set at 0.20.",
+      "# Data Retention and Disposal Procedure\n\nCustomer transaction records are retained for 10 years. Behavioral data\ncollected for marketing purposes may be retained for at most 24 months.\n\nDeletion requests (under applicable data protection regulation) are\ncompleted within 30 days; removal from backups may take an additional\n60 days.\n\nData is classified into four levels: Public, Internal, Confidential, and\nHighly Confidential. Highly Confidential data is stored only on encrypted\ndisks."
     ],
     "expected_sources": [
-      "olay_mudahale.md"
+      "incident_response.md"
     ],
-    "ground_truth": "Kök neden analizi raporu olayın kapanmasından sonraki 10 iş günü içinde yayımlanır."
+    "ground_truth": "The root cause analysis report is published within 10 business days after the incident is closed."
   }
 ]

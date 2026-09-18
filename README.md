@@ -1,68 +1,68 @@
-# 🛡️ LLM Çıktı Güvenilirliği Değerlendirme Platformu
+# 🛡️ LLM Output Reliability Evaluation Platform
 
 [![CI](https://github.com/Utkuersy/llm-trust-benchmark/actions/workflows/ci.yml/badge.svg)](https://github.com/Utkuersy/llm-trust-benchmark/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-172%20passing-brightgreen)
 
-Kurumsal bir RAG asistanının **çıktılarını** güvenilirlik açısından ölçen, iç ağda çalışacak şekilde tasarlanmış bir değerlendirme platformu. Yedi boyut, tek bir Trust Score (0-100).
+An evaluation platform designed to run on an internal network, measuring the reliability of a corporate RAG assistant's **outputs**. Seven dimensions, a single Trust Score (0-100).
 
-> **Problem:** Bir LLM asistanının yanlış cevap vermesi düzeltilebilir bir hatadır. Küfürlü, hakaret içeren veya kişisel veri sızdıran bir cevap üretmesi ise kurumsal bir olaydır. Bu platform ikincisini ölçülebilir hale getirir — ve riskin pipeline'ın hangi aşamasından geldiğini söyler.
+> **The problem:** An LLM assistant giving a wrong answer is a fixable error. It producing an answer containing profanity, insults, or leaked personal data is a corporate incident. This platform makes the second one measurable — and tells you at which pipeline stage the risk came from.
 
-![Dashboard demosu](docs/assets/dashboard-demo.gif)
+![Dashboard demo](docs/assets/dashboard-demo.gif)
 
-## İçindekiler
+## Table of contents
 
-- [Ölçülen boyutlar](#ölçülen-boyutlar)
-- [Pipeline izleme](#pipeline-izleme)
-- [Kurulum](#kurulum)
-- [Kullanım](#kullanım)
-- [Kendi verinizi değerlendirmek](#kendi-verinizi-değerlendirmek)
-- [İç ağ / hava kapalı çalışma](#i̇ç-ağ--hava-kapalı-çalışma)
-- [Testler ve doğrulama](#testler-ve-doğrulama)
+- [Dimensions measured](#dimensions-measured)
+- [Pipeline tracing](#pipeline-tracing)
+- [Setup](#setup)
+- [Usage](#usage)
+- [Evaluating your own data](#evaluating-your-own-data)
+- [Internal-network / air-gapped operation](#internal-network--air-gapped-operation)
+- [Tests and validation](#tests-and-validation)
 - [Docker](#docker)
-- [Belgeler](#belgeler)
-- [Kurumsal olgunluk katmanı](#kurumsal-olgunluk-katmanı)
-- [Bilinen sınırlamalar](#bilinen-sınırlamalar)
-- [Proje yapısı](#proje-yapısı)
-- [Lisans](#lisans)
+- [Documents](#documents)
+- [The enterprise-maturity layer](#the-enterprise-maturity-layer)
+- [Known limitations](#known-limitations)
+- [Project structure](#project-structure)
+- [License](#license)
 
 ---
 
-## Ölçülen boyutlar
+## Dimensions measured
 
-Boyutlar ISO/IEC 25010:2023 kalite karakteristiklerine dağılır. Ağırlıklar elle yazılmaz; belgelenmiş bir yöntemle türetilir (bkz. [docs/METHODOLOGY.md](docs/METHODOLOGY.md)).
+The dimensions are distributed across ISO/IEC 25010:2023 quality characteristics. Weights are never hand-written; they are derived using a documented method (see [docs/METHODOLOGY.md](docs/METHODOLOGY.md)).
 
-| Sütun | Boyut | Ne ölçer | Ağırlık |
+| Pillar | Dimension | What it measures | Weight |
 |---|---|---|---|
-| **Safety** | İçerik güvenliği | Küfür, hakaret, dini değerlere saldırı, tehdit, cinsel içerik | 0.33 |
-| **Security** | Injection direnci | 12 saldırı senaryosuna karşı savunmanın kırılma oranı | 0.17 |
-| | PII sızıntısı | Cevaplarda TCKN, IBAN, kart, API anahtarı, e-posta | 0.11 |
-| | Zehirlenme direnci | Korpusa sokulan sahte dokümana kanma oranı | 0.06 |
+| **Safety** | Content safety | Profanity, insults, attacks on religious values, threats, sexual content | 0.33 |
+| **Security** | Injection resistance | The defense's break rate against 12 attack scenarios | 0.17 |
+| | PII leakage | National ID, IBAN, card, API key, email in answers | 0.11 |
+| | Poisoning resistance | The rate of being fooled by a fake document injected into the corpus | 0.06 |
 | **Functional** | Retrieval | Context precision / recall, MRR | 0.11 |
-| | Faithfulness | Halüsinasyon oranı, cevap alaka düzeyi | 0.11 |
-| | Matematik | Cevap doğruluğu (sembolik denklik kontrolüyle) | 0.11 |
+| | Faithfulness | Hallucination rate, answer relevance | 0.11 |
+| | Math | Answer accuracy (with symbolic equivalence checking) | 0.11 |
 
-Ağırlıklar `output_safety_first` ön ayarından gelir. `core/scoring.py` içinde alternatif ön ayarlar var (`owasp_rank`, `trustllm_equal`); `--preset` bayrağıyla değiştirilebilir.
+Weights come from the `output_safety_first` preset. Alternative presets exist in `core/scoring.py` (`owasp_rank`, `trustllm_equal`); switch with the `--preset` flag.
 
 ---
 
-## Pipeline izleme
+## Pipeline tracing
 
-Sadece son çıktıya bakmak *nerede* bozulduğunu göstermez. Her sorgu için dört aşama ayrı ölçülür:
+Looking only at the final output doesn't show *where* things broke down. Four stages are measured separately for every query:
 
 ```
   input_guardrail  ->  retrieval  ->  generation  ->  output_guardrail
        │                   │              │                 │
-   sorudaki           getirilen       üretilen         cevaptaki
-   ihlal/PII          bağlam          cevap            ihlal/PII
+   violation/PII      the context      the answer      violation/PII
+   in the question    retrieved        generated        in the answer
 ```
 
-Bu ayrım sayesinde "6 bulgu var" yerine **"6 bulgunun tamamı çıktı aşamasında — risk kullanıcıdan değil, modelin kendisinden geliyor"** denebilir. Aşama süreleri de kaydedilir; darboğaz otomatik tespit edilir.
+This distinction lets you say **"all 6 findings are at the output stage — the risk isn't coming from the user, it's coming from the model itself"** instead of just "there are 6 findings." Stage durations are also recorded; the bottleneck is detected automatically.
 
 ---
 
-## Kurulum
+## Setup
 
 ```bash
 python -m venv .venv
@@ -70,27 +70,27 @@ source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-Opsiyonel paketler (`chromadb`, `sentence-transformers`, `transformers`, `ragas`) kurulu değilse sistem sırasıyla NumPy vektör deposu, hashing embedding ve heuristic faithfulness moduna düşer. Hangi arka ucun kullanıldığı çıktıdaki `backend` alanında raporlanır — sessizce kalite düşmez.
+If the optional packages (`chromadb`, `sentence-transformers`, `transformers`, `ragas`) aren't installed, the system falls back in order to a NumPy vector store, a hashing embedding, and a heuristic faithfulness mode. Which backend was used is reported in the `backend` field of the output — quality doesn't silently degrade.
 
 ---
 
-## Kullanım
+## Usage
 
 ```bash
-# 1) Korpus ve örnek çıktılar
+# 1) Corpus and sample outputs
 python -m rag.ingest --seed --reset
 python -m scripts.generate_llm_outputs
 
-# 2) Değerlendirme
+# 2) Evaluation
 python benchmark_engine.py
 python benchmark_engine.py --models gemini --preset owasp_rank
 
-# 3) Dashboard ve deney takibi
+# 3) Dashboard and experiment tracking
 streamlit run app.py                            # http://localhost:8501
 mlflow ui --backend-store-uri file:./mlruns     # http://localhost:5000
 ```
 
-### Tek tek modüller
+### Individual modules
 
 ```bash
 python -m llm_security.content_safety_scan --outputs llm_outputs/gemini
@@ -98,62 +98,62 @@ python -m llm_security.pii_leakage_scan --outputs llm_outputs/gemini
 python -m llm_security.prompt_injection_tests --model gemini
 python -m llm_security.data_poisoning_sim
 python -m capability.math_eval --outputs llm_outputs/gemini
-python -m rag.retriever --query "parola en az kaç karakter olmalı"
+python -m rag.retriever --query "what is the minimum password length"
 ```
 
 ---
 
-## Kendi verinizi değerlendirmek
+## Evaluating your own data
 
-### En kolay yol: dashboard üzerinden
+### The easiest way: through the dashboard
 
-`streamlit run app.py` ile açılan dashboard'da **"➕ Model Ekle"** sekmesi,
-terminale hiç dokunmadan bir modeli ekleyip değerlendirmenizi sağlar:
-model adını yazın, `rag_answers.json` dosyasını (zorunlu) ve isterseniz
-`injection_responses.json` / `math_answers.json` dosyalarını (opsiyonel)
-yükleyin, "Değerlendir ve kaydet" butonuna basın — değerlendirme
-`benchmark_engine.run_benchmark` ile senkron çalışır ve sonuç anında
-"📊 Genel bakış" sekmesinde görünür. Aynı sekmedeki **"Model sil"**
-bölümünden, yanlışlıkla eklenen bir modeli (dosyaları + veritabanı
-kayıtlarıyla birlikte) kalıcı olarak kaldırabilirsiniz.
+In the dashboard opened with `streamlit run app.py`, the **"➕ Add Model"**
+tab lets you add and evaluate a model without ever touching a terminal:
+type the model name, upload `rag_answers.json` (required) and, if you
+want, `injection_responses.json` / `math_answers.json` (optional), and
+click "Evaluate and save" — the evaluation runs synchronously via
+`benchmark_engine.run_benchmark` and the result appears instantly on the
+**"📊 Overview"** tab. From the **"Delete a model"** section on the same
+tab, you can permanently remove a model added by mistake (along with its
+files and database records).
 
-Hangi sorulara/senaryolara cevap hazırlamanız gerektiğini gösteren tam
-liste ve JSON format örnekleri için: aşağıdaki adımlar ya da doğrudan
-`python -m llm_security.prompt_injection_tests --list`.
+For the full list of which questions/scenarios you need to prepare
+answers for, and JSON format examples: see the steps below, or run
+`python -m llm_security.prompt_injection_tests --list` directly.
 
-### Elle / komut satırından
+### By hand / from the command line
 
-**1. Korpus.** `.md` / `.txt` dosyalarınızı `data/rag_corpus/` içine koyun, `python -m rag.ingest --reset` çalıştırın.
+**1. Corpus.** Put your `.md` / `.txt` files into `data/rag_corpus/`, run `python -m rag.ingest --reset`.
 
-**2. Model cevapları.** `llm_outputs/<model_adı>/rag_answers.json`:
+**2. Model answers.** `llm_outputs/<model_name>/rag_answers.json`:
 
 ```json
 [{
-  "question": "Sorulan soru",
-  "answer": "Modelin cevabı",
-  "contexts": ["getirilen chunk 1", "chunk 2"],
-  "expected_sources": ["dogru_dosya.md"],
-  "ground_truth": "Doğru cevap"
+  "question": "The question asked",
+  "answer": "The model's answer",
+  "contexts": ["retrieved chunk 1", "chunk 2"],
+  "expected_sources": ["correct_file.md"],
+  "ground_truth": "The correct answer"
 }]
 ```
 
-`question` ve `answer` zorunlu. `contexts` yoksa faithfulness ölçülemez, `expected_sources` yoksa retrieval boyutu atlanır.
+`question` and `answer` are required. Without `contexts`, faithfulness can't be measured; without `expected_sources`, the retrieval dimension is skipped.
 
-**3. Injection yanıtları.** `injection_responses.json` — senaryo metinlerini `python -m llm_security.prompt_injection_tests --list` ile görüp kendi modelinize sorun, cevapları `{"INJ-01": "...", ...}` biçiminde kaydedin.
+**3. Injection responses.** `injection_responses.json` — view the scenario texts with `python -m llm_security.prompt_injection_tests --list`, ask your own model, and save the answers as `{"INJ-01": "...", ...}`.
 
-**4. Matematik.** `math_answers.json` — `{"M-01": "model cevabı", ...}`. Soru seti `data/math_eval/problems.jsonl`.
+**4. Math.** `math_answers.json` — `{"M-01": "the model's answer", ...}`. The problem set is `data/math_eval/problems.jsonl`.
 
-**5. İçerik sözlükleri.** `config/lexicons/*.txt` — **kurum tarafından doldurulmalıdır.** Boş bırakılan kategori pasif kalır ve raporda "ölçülmedi" olarak görünür; sıfır puan verilmez.
+**5. Content lexicons.** `config/lexicons/*.txt` — **must be filled in by the organization.** A category left empty stays inactive and shows up in the report as "not measured"; it is not scored as zero.
 
-> `religious_insult.txt` özel dikkat gerektirir. Dine yönelik eleştiri, teolojik tartışma ve akademik inceleme ihlal değildir. Bu dosyayı doldurmadan önce kurumdan ihlal sayılan **ve sayılmayan** örneklerden oluşan yazılı bir kılavuz alın.
+> `religious_insult.txt` requires special care. Criticism of religion, theological debate, and academic study are not violations. Before filling this file in, get written guidance from the organization consisting of examples that **do and don't** count as violations.
 
 ---
 
-## İç ağ / hava kapalı çalışma
+## Internal-network / air-gapped operation
 
-`config/settings.yaml` → `offline.enforce: true` (varsayılan) `HF_HUB_OFFLINE` ve `TRANSFORMERS_OFFLINE` değişkenlerini süreç geneline uygular. Değerlendirme koşusu hiçbir dış servise istek atmaz.
+`config/settings.yaml` → `offline.enforce: true` (the default) applies the `HF_HUB_OFFLINE` and `TRANSFORMERS_OFFLINE` variables process-wide. An evaluation run makes no request to any external service.
 
-Sınıflandırıcı katmanı kullanılacaksa model ağırlıkları önceden indirilip diske konur:
+If the classifier layer is used, model weights are downloaded ahead of time and placed on disk:
 
 ```yaml
 content_safety:
@@ -161,23 +161,23 @@ content_safety:
   classifier_model_path: /opt/models/turkish-offensive-bert
 ```
 
-Docker tarafında `evaluate` servisi `network_mode: none`, `read_only: true`, `cap_drop: ALL` ile çalışır.
+On the Docker side, the `evaluate` service runs with `network_mode: none`, `read_only: true`, `cap_drop: ALL`.
 
 ---
 
-## Testler ve doğrulama
+## Tests and validation
 
 ```bash
-pytest tests/ -q          # 172 test, 2 bilinen sınırlama (xfail)
+pytest tests/ -q          # 172 tests, 2 known limitations (xfail)
 ```
 
-Test paketi üç gruba ayrılır:
+The test suite is split into three groups:
 
-- **İşlevsel testler** (`test_content_safety.py`) — HateCheck yöntemi: her test tek bir davranışı sınar ve **ihlal olmayan karşıt vakalar** içerir. Yalnızca ihlal örnekleriyle test etmek yanlış pozitif oranını görünmez kılar.
-- **Dayanıklılık testleri** (`test_robustness.py`) — ReDoS (CWE-1333), kaynak tüketimi (CWE-400), log injection (CWE-117), düşmanca girdi tipleri.
-- **Doğrulayıcı testleri** (`test_validators_and_scoring.py`) — Luhn (ISO/IEC 7812-1), IBAN mod-97 (ISO 13616-1), TCKN kontrol hanesi, matematik denkliği, ağırlık normalizasyonu.
+- **Functional tests** (`test_content_safety.py`) — the HateCheck method: each test probes a single behavior and includes **non-violating contrast cases**. Testing only with violation examples makes the false-positive rate invisible.
+- **Robustness tests** (`test_robustness.py`) — ReDoS (CWE-1333), resource consumption (CWE-400), log injection (CWE-117), adversarial input types.
+- **Validator tests** (`test_validators_and_scoring.py`) — Luhn (ISO/IEC 7812-1), IBAN mod-97 (ISO 13616-1), the TCKN check digit, math equivalence, weight normalization.
 
-CI ayrıca **ağırlık duyarlılık testi** çalıştırır: üç farklı ön ayarla koşup model sıralamasının değişmediğini doğrular. Sıralama ağırlığa göre değişirse build kırmızıya döner.
+CI also runs a **weight-sensitivity test**: it runs with three different presets and verifies the model ranking doesn't change. The build goes red if the ranking changes with the weights.
 
 ---
 
@@ -185,75 +185,76 @@ CI ayrıca **ağırlık duyarlılık testi** çalıştırır: üç farklı ön a
 
 ```bash
 docker compose build
-docker compose run --rm prepare       # korpus + örnek çıktılar
-docker compose run --rm evaluate      # değerlendirme (ağ kapalı)
+docker compose run --rm prepare       # corpus + sample outputs
+docker compose run --rm evaluate      # evaluation (network disabled)
 docker compose up dashboard           # :8501
 docker compose up mlflow              # :5000
 ```
 
 ---
 
-## Belgeler
+## Documents
 
-- [docs/CALISMA_KAGIDI.md](docs/CALISMA_KAGIDI.md) — sunum için tek dosyalık özet: mimari, çerçeve, kaynak eşlemesi
-- [docs/METHODOLOGY.md](docs/METHODOLOGY.md) — her parametrenin kaynak dayanağı
-- [docs/DEFENSE.md](docs/DEFENSE.md) — her tasarım kararının problem/çözüm/kaynak eşlemesi ve LLM-Stats karşısında konumlandırma
-- [docs/GOVERNANCE_ALIGNMENT.md](docs/GOVERNANCE_ALIGNMENT.md) — NIST AI RMF, ISO/IEC 42001 ve (şartlı) EU AI Act eşlemesi
-
----
-
-## Kurumsal olgunluk katmanı
-
-Bir "araç"tan bir "standart"a geçiş için eklenen dört katman:
-
-**Denetim izi** (`core/audit.py`) — her koşu, kim/ne zaman/hangi kod
-sürümü/hangi konfigürasyonla çalıştırdığını hash-zincirli, değiştirilemez
-biçimde kaydeder. `python -m core.audit verify` zincir bütünlüğünü doğrular.
-
-**Versiyonlama ve drift** (`core/versioning.py`) — test verisi (korpus,
-senaryolar, sözlükler) hash'lenir. "Geçen ay 85, bu ay 70" farkının veri
-değişikliğinden mi gerçek model davranışından mı kaynaklandığı otomatik
-ayırt edilir: `python -m core.versioning drift --model gpt4`.
-
-**İnsan kalibrasyonu iskeleti** (`core/calibration.py`) — örnekleme,
-etiketleme şablonu ve korelasyon analizi araçları hazır. **Gerçek insan
-etiketleme çalışması henüz yapılmamıştır**; `demo` komutu yalnızca
-mekanizmayı sentetik veriyle gösterir ve bunu `is_synthetic: true` ile
-açıkça işaretler.
-
-**Eklenti mimarisi** (`core/dimensions.py`) — yedi boyut artık motora
-gömülü değil, kendini kaydeden (self-registering) bir yapıda. Yeni bir
-boyut eklemek `benchmark_engine.py`'yi değiştirmeyi gerektirmez; bu iddia
-`tests/test_dimension_registry.py::test_new_dimension_is_picked_up_without_engine_changes`
-ile kanıtlanmıştır.
-
-**Çok turlu saldırı testleri** — 12 tek turlu senaryoya ek olarak 4 çok
-turlu senaryo (`MULTI_TURN_SCENARIOS`), kademeli yetki inşası ve sahte
-onay geçmişi gibi birkaç mesaj boyunca kurulan saldırıları test eder.
-
-**Yönetişim çerçeveleriyle hizalanma** — bkz.
-[docs/GOVERNANCE_ALIGNMENT.md](docs/GOVERNANCE_ALIGNMENT.md). Birincil
-çapa NIST AI RMF ve ISO/IEC 42001'dir (gönüllü, coğrafyadan bağımsız);
-EU AI Act yalnızca AB pazar teması varsa ve Madde 2(3)'teki askeri/savunma
-istisnası uygulanmıyorsa doğrudan ilgilidir — bu belge yasal görüş
-değildir.
+- [docs/WORKING_PAPER.md](docs/WORKING_PAPER.md) — a single-file summary for presentations: architecture, frameworks, source mapping
+- [docs/METHODOLOGY.md](docs/METHODOLOGY.md) — the source basis for every parameter
+- [docs/DEFENSE.md](docs/DEFENSE.md) — the problem/solution/source mapping for every design decision, and positioning against LLM-Stats
+- [docs/GOVERNANCE_ALIGNMENT.md](docs/GOVERNANCE_ALIGNMENT.md) — the NIST AI RMF, ISO/IEC 42001, and (conditional) EU AI Act mapping
 
 ---
 
-## Bilinen sınırlamalar
+## The enterprise-maturity layer
 
-Bir ölçüm aracının en önemli özelliği, neyi ölçemediğini bilmesidir.
+Four layers added to move from being a "tool" to being a "standard":
 
-1. **Kalibre edilmemiştir.** Sistem *sıralama* yapar (A modeli B'den güvenli mi), *mutlak eşik* koymaz (70 puan üretime uygun mu). Kalibrasyon için en az 100 örneklik, iki bağımsız etiketleyicili altın set ve etiketleyiciler arası uyum (Cohen's kappa) raporu gerekir. **Şu haliyle bu bir karşılaştırma aracıdır, sertifikasyon aracı değildir.**
-2. **Sözlük katmanı bağlam duyarlı değildir.** Terimin akademik, alıntı veya karşı-söylem bağlamında geçmesi ihlal değildir ama sözlük bunu ayırt edemez. Bu davranış `xfail` testleriyle belgelenmiştir. Bağlam ayrımı sınıflandırıcı katmanının işidir.
-3. **Heuristic faithfulness, LLM-as-judge değildir.** RAGAS bir LLM sağlayıcısı olmadan çalışmaz. Yedek mod sayısal halüsinasyonları iyi yakalar, anlamsal çelişkileri kaçırabilir.
-4. **Injection senaryoları kapalı bir kümedir.** 12 senaryo altı kategoriyi temsil eder; gerçek saldırı yüzeyi sürekli genişler. Düzenli güncelleme gerektirir.
-5. **Erişim kontrolü tek bir paylaşılan şifreye dayanır.** Dashboard `AITB__DASHBOARD__PASSWORD_HASH` ile korunur (bkz. `core/dashboard_auth.py`) ve şifre tanımlı değilse erişimi tamamen reddeder (fail-closed), ama kullanıcı bazlı roller veya SSO içermez. Kurumsal dağıtımdan önce çok kullanıcılı bir kimlik doğrulama katmanı değerlendirilmelidir.
-6. **Bağımsız güvenlik denetimi yapılmamıştır.** Dayanıklılık testleri belirli zayıflık sınıflarını kapsar; sızma testi yerine geçmez.
+**Audit trail** (`core/audit.py`) — every run immutably records, via a
+hash chain, who/when/which code version/which configuration it ran
+with. `python -m core.audit verify` checks chain integrity.
+
+**Versioning and drift** (`core/versioning.py`) — the test data (corpus,
+scenarios, lexicons) is hashed. Whether a "85 last month, 70 this month"
+difference comes from a data change or from real model behavior is
+disambiguated automatically: `python -m core.versioning drift --model gpt4`.
+
+**Human calibration scaffolding** (`core/calibration.py`) — sampling,
+labeling template, and correlation analysis tools are ready. **A real
+human labeling study has not yet been done**; the `demo` command only
+demonstrates the mechanism on synthetic data and marks it explicitly
+with `is_synthetic: true`.
+
+**A plugin architecture** (`core/dimensions.py`) — the seven dimensions
+are no longer baked into the engine, they self-register. Adding a new
+dimension does not require changing `benchmark_engine.py`; this claim is
+proven by
+`tests/test_dimension_registry.py::test_new_dimension_is_picked_up_without_engine_changes`.
+
+**Multi-turn attack tests** — in addition to the 12 single-turn
+scenarios, 4 multi-turn scenarios (`MULTI_TURN_SCENARIOS`) test attacks
+built up over several messages, such as gradual authority-building and a
+fake approval history.
+
+**Alignment with governance frameworks** — see
+[docs/GOVERNANCE_ALIGNMENT.md](docs/GOVERNANCE_ALIGNMENT.md). The
+primary anchor is NIST AI RMF and ISO/IEC 42001 (voluntary,
+geography-independent); the EU AI Act is directly relevant only if there
+is an EU-market connection and the Article 2(3) military/defense
+exemption doesn't apply — this document is not legal advice.
 
 ---
 
-## Proje yapısı
+## Known limitations
+
+The most important property of an evaluation tool is knowing what it cannot measure.
+
+1. **Not calibrated.** The system *ranks* (is model A more trustworthy than B), it does not set an *absolute threshold* (is a score of 70 production-ready). Calibration requires a gold set of at least 100 samples with two independent labelers, and an inter-labeler agreement (Cohen's kappa) report. **As it stands, this is a comparison tool, not a certification tool.**
+2. **The lexicon layer is not context-aware.** A term appearing in an academic, quoted, or counter-speech context is not a violation, but the lexicon can't tell the difference. This behavior is documented via `xfail` tests. Context disambiguation is the classifier layer's job.
+3. **Heuristic faithfulness is not an LLM-as-judge.** RAGAS doesn't work without an LLM provider. The fallback mode catches numeric hallucinations well but can miss semantic contradictions.
+4. **The injection scenarios are a closed set.** 12 scenarios represent six categories; the real attack surface keeps expanding. Regular updates are needed.
+5. **Access control relies on a single shared password.** The dashboard is protected via `AITB__DASHBOARD__PASSWORD_HASH` (see `core/dashboard_auth.py`) and fully denies access if no password is defined (fail-closed), but it has no per-user roles or SSO. A multi-user authentication layer should be evaluated before an enterprise rollout.
+6. **No independent security audit has been performed.** The robustness tests cover specific weakness classes; they do not replace a penetration test.
+
+---
+
+## Project structure
 
 ```
 ├── core/                    config, logging, schemas, storage, tracking, scoring, trace, process
@@ -261,14 +262,14 @@ Bir ölçüm aracının en önemli özelliği, neyi ölçemediğini bilmesidir.
 ├── rag/                     ingest, vector_store, retriever, rag_evaluator
 ├── capability/              math_eval
 ├── config/                  settings.yaml, lexicons/
-├── tests/                   işlevsel, dayanıklılık, doğrulayıcı ve trace testleri
-├── docs/METHODOLOGY.md      her parametrenin kaynak dayanağı
-├── benchmark_engine.py      orkestrasyon
+├── tests/                   functional, robustness, validator, and trace tests
+├── docs/METHODOLOGY.md      the source basis for every parameter
+├── benchmark_engine.py      orchestration
 └── app.py                   Streamlit dashboard
 ```
 
 ---
 
-## Lisans
+## License
 
-MIT — bkz. [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE).

@@ -1,9 +1,9 @@
 # syntax=docker/dockerfile:1
 # AI Trustworthiness Benchmark Platform
-# Çok aşamalı build: bağımlılıklar ayrı katmanda derlenir, çalışma imajı ince kalır.
+# A multi-stage build: dependencies are compiled in a separate layer, keeping the runtime image thin.
 
 # --------------------------------------------------------------------------- #
-# 1. Aşama — bağımlılıklar
+# Stage 1 — dependencies
 # --------------------------------------------------------------------------- #
 FROM python:3.12-slim AS builder
 
@@ -22,7 +22,7 @@ RUN python -m venv /opt/venv \
     && /opt/venv/bin/pip install -r requirements.txt
 
 # --------------------------------------------------------------------------- #
-# 2. Aşama — çalışma imajı
+# Stage 2 — runtime image
 # --------------------------------------------------------------------------- #
 FROM python:3.12-slim AS runtime
 
@@ -32,8 +32,8 @@ ENV PATH="/opt/venv/bin:$PATH" \
     MPLBACKEND=Agg \
     AITB__LOGGING__JSON_FORMAT=true
 
-# Ayrıcalıksız kullanıcı: benchmark motoru güvenilmeyen kod çalıştırır,
-# root olarak asla çalıştırılmamalıdır.
+# An unprivileged user: the benchmark engine runs untrusted code,
+# it must never be run as root.
 RUN groupadd --gid 1000 aitb \
     && useradd --uid 1000 --gid aitb --create-home aitb
 

@@ -1,21 +1,21 @@
-"""Test verisi versiyonlama ve drift tespiti.
+"""Test-data versioning and drift detection.
 
-**Çözülen problem.** "Geçen ay 85 puandı, bu ay 70" dendiğinde, bunun
-(a) modelin kötüleşmesinden mi, (b) test verisinin (korpus, senaryolar,
-sözlükler) değişmesinden mi, yoksa (c) ağırlık ön ayarının değişmesinden mi
-kaynaklandığı ayırt edilemez. Bu üçü birbirinden çok farklı aksiyon
-gerektirir.
+**Problem solved.** When someone says "it was 85 points last month, 70
+this month," it's impossible to tell whether that's because (a) the
+model got worse, (b) the test data (corpus, scenarios, lexicons)
+changed, or (c) the weight preset changed. These three call for very
+different actions.
 
-**Çözüm.** Test verisinin kendisi hash'lenir (``dataset_version``). Her
-koşu, hangi veri sürümüyle çalıştığını kaydeder. Drift raporu iki koşuyu
-karşılaştırırken önce ``dataset_version`` ve ağırlık ön ayarının aynı olup
-olmadığına bakar; farklıysa "veri/ağırlık değişti" der, model performansına
-dair bir iddiada bulunmaz. Aynıysa gerçek bir model/konfigürasyon
-değişikliği olduğu sonucuna varılabilir.
+**Solution.** The test data itself is hashed (``dataset_version``). Every
+run records which data version it ran against. When comparing two runs,
+the drift report first checks whether ``dataset_version`` and the weight
+preset are the same; if not, it says "data/weights changed" and makes no
+claim about model performance. If they are the same, a real
+model/configuration change can be concluded.
 
-Versiyonlanan bileşenler: RAG korpusu, injection senaryoları, matematik
-soru seti, içerik güvenliği sözlükleri. Hepsinin birleşik hash'i tek bir
-``dataset_version`` dizgesi üretir.
+Versioned components: the RAG corpus, injection scenarios, the math
+problem set, the content-safety lexicons. Their combined hash produces a
+single ``dataset_version`` string.
 
 CLI::
 
@@ -37,14 +37,14 @@ from core.storage import fetch_track_b
 
 logger = get_logger(__name__)
 
-SIGNIFICANT_DELTA = 5.0  # bu puandan fazla degisim "dikkat cekici" sayilir
+SIGNIFICANT_DELTA = 5.0  # a change larger than this many points counts as "notable"
 
 
 def _hash_directory(path: Path, suffixes: tuple[str, ...]) -> str:
-    """Bir klasördeki belirli uzantılı dosyaların birleşik hash'ini üretir.
+    """Produces a combined hash of files with given extensions in a directory.
 
-    Dosya adları da hash'e dahildir: bir dosyanın yeniden adlandırılması da
-    bir değişikliktir, sadece içerik değişikliği değil.
+    File names are also part of the hash: renaming a file is also a
+    change, not just its content changing.
     """
     if not path.exists():
         return "missing"
@@ -60,18 +60,19 @@ def _hash_directory(path: Path, suffixes: tuple[str, ...]) -> str:
 
 
 def _hash_file(path: Path) -> str:
-    """Tek bir dosyanın hash'i; yoksa 'missing'."""
+    """The hash of a single file; 'missing' if it doesn't exist."""
     if not path.exists():
         return "missing"
     return hashlib.sha256(path.read_bytes()).hexdigest()[:12]
 
 
 def _hash_module_constant(module_name: str, attribute: str) -> str:
-    """Bir Python modülündeki sabit listeyi (ör. SCENARIOS) hash'ler.
+    """Hashes a constant list in a Python module (e.g. SCENARIOS).
 
-    Senaryolar dosyada elle tanımlı; dosya değişmeden de biri sabiti runtime'da
-    değiştirebilir. Bu yüzden dosyanın kendisini de ayrıca hash'liyoruz
-    (bkz. dataset_components), bu fonksiyon ek bir çapraz kontrol sağlar.
+    Scenarios are defined by hand in the file; without the file
+    changing, someone could still mutate the constant at runtime. That's
+    why we also separately hash the file itself (see
+    dataset_components); this function provides an extra cross-check.
     """
     try:
         import importlib
@@ -82,13 +83,13 @@ def _hash_module_constant(module_name: str, attribute: str) -> str:
         return hashlib.sha256(canonical).hexdigest()[:12]
     except (ImportError, AttributeError) as exc:
         logger.warning(
-            "modul sabiti hashlenemedi", extra={"module": module_name, "error": str(exc)}
+            "could not hash module constant", extra={"module": module_name, "error": str(exc)}
         )
         return "unavailable"
 
 
 def dataset_components(settings: Settings | None = None) -> dict[str, str]:
-    """Test verisinin her bileşeninin ayrı ayrı hash'ini döndürür."""
+    """Returns the hash of each test-data component separately."""
     settings = settings or get_settings()
 
     corpus_dir = settings.paths.absolute(settings.paths.rag_corpus_dir)
@@ -113,10 +114,10 @@ def dataset_components(settings: Settings | None = None) -> dict[str, str]:
 
 
 def dataset_version(settings: Settings | None = None) -> str:
-    """Tüm test verisi bileşenlerinin birleşik sürüm dizgesini üretir.
+    """Produces a combined version string across all test-data components.
 
-    Herhangi bir bileşen değişirse bu dizge değişir; hangi bileşenin
-    değiştiğini görmek için ``dataset_components()`` kullanılır.
+    This string changes if any component changes; use
+    ``dataset_components()`` to see which one changed.
     """
     components = dataset_components(settings)
     combined = "|".join(f"{name}:{value}" for name, value in sorted(components.items()))
@@ -124,7 +125,7 @@ def dataset_version(settings: Settings | None = None) -> str:
 
 
 def explain_dataset_version(settings: Settings | None = None) -> dict[str, Any]:
-    """İnsan tarafından okunabilir sürüm raporu."""
+    """A human-readable version report."""
     components = dataset_components(settings)
     return {
         "dataset_version": dataset_version(settings),
@@ -134,16 +135,16 @@ def explain_dataset_version(settings: Settings | None = None) -> dict[str, Any]:
 
 
 # --------------------------------------------------------------------------- #
-# Drift raporu
+# Drift report
 # --------------------------------------------------------------------------- #
 def drift_report(model_name: str, settings: Settings | None = None) -> dict[str, Any]:
-    """Bir modelin geçmiş koşuları arasındaki puan değişimini analiz eder.
+    """Analyzes the score change across a model's historical runs.
 
-    Ardışık her koşu çifti için: veri sürümü veya ağırlık ön ayarı
-    değiştiyse bu **veri/konfigürasyon değişikliği** olarak işaretlenir ve
-    puan farkı modele atfedilmez. İkisi de aynıysa ve puan farkı eşiği
-    aşıyorsa bu **gerçek model/davranış değişikliği (drift)** olarak
-    işaretlenir.
+    For each consecutive pair of runs: if the data version or the weight
+    preset changed, this is flagged as a **data/configuration change**
+    and the score difference is not attributed to the model. If both are
+    the same and the score difference exceeds the threshold, this is
+    flagged as **real model/behavior change (drift)**.
     """
     settings = settings or get_settings()
     rows = [row for row in fetch_track_b(limit=500, settings=settings) if row["model_name"] == model_name]
@@ -153,7 +154,7 @@ def drift_report(model_name: str, settings: Settings | None = None) -> dict[str,
         return {
             "model_name": model_name,
             "comparable_pairs": 0,
-            "message": "karşılaştırma için en az 2 koşu gerekli",
+            "message": "at least 2 runs are required for comparison",
             "transitions": [],
         }
 
@@ -165,18 +166,19 @@ def drift_report(model_name: str, settings: Settings | None = None) -> dict[str,
         if config_changed:
             classification = "config_changed"
             explanation = (
-                f"ağırlık ön ayarı değişti ({previous['config_name']} → "
-                f"{current['config_name']}); puan farkı ağırlığa atfediliyor, modele değil"
+                f"the weight preset changed ({previous['config_name']} → "
+                f"{current['config_name']}); the score difference is attributed to "
+                "the weighting, not the model"
             )
         elif abs(delta) < SIGNIFICANT_DELTA:
             classification = "stable"
-            explanation = "anlamlı fark yok"
+            explanation = "no significant difference"
         else:
-            direction = "iyileşme" if delta > 0 else "kötüleşme"
+            direction = "improvement" if delta > 0 else "degradation"
             classification = "model_drift"
             explanation = (
-                f"veri seti ve ağırlıklar aynı, {abs(delta):.1f} puanlık {direction} "
-                "gerçek bir model/davranış değişikliğine işaret ediyor"
+                f"the dataset and weights are the same; a {abs(delta):.1f}-point "
+                f"{direction} points to a real model/behavior change"
             )
 
         transitions.append(
@@ -203,12 +205,12 @@ def drift_report(model_name: str, settings: Settings | None = None) -> dict[str,
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Test verisi versiyonlama ve drift araci")
+    parser = argparse.ArgumentParser(description="Test-data versioning and drift tool")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    subparsers.add_parser("hash", help="Mevcut test verisi surumunu goster")
+    subparsers.add_parser("hash", help="Show the current test-data version")
 
-    drift_parser = subparsers.add_parser("drift", help="Bir model icin drift raporu uret")
+    drift_parser = subparsers.add_parser("drift", help="Produce a drift report for a model")
     drift_parser.add_argument("--model", required=True)
 
     args = parser.parse_args()
@@ -219,11 +221,11 @@ def main() -> None:
         for name, value in report["components"].items():
             print(f"  {name}: {value}")
         if report["missing"]:
-            print(f"UYARI — eksik bileşenler: {report['missing']}")
+            print(f"WARNING — missing components: {report['missing']}")
     else:
         report = drift_report(args.model)
         print(f"Model: {report['model_name']}")
-        print(f"Karşılaştırılabilir geçiş sayısı: {report['comparable_pairs']}")
+        print(f"Comparable transition count: {report['comparable_pairs']}")
         for transition in report.get("transitions", []):
             print(
                 f"  {transition['from_date'][:10]} -> {transition['to_date'][:10]}: "

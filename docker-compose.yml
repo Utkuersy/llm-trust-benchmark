@@ -1,9 +1,9 @@
-# LLM Çıktı Güvenilirliği Platformu — servis tanımları
+# LLM Output Reliability Platform — service definitions
 #
 #   docker compose up dashboard          # dashboard (:8501)
-#   docker compose run --rm evaluate     # değerlendirme koşusu
-#   docker compose run --rm prepare      # korpus + örnek çıktı hazırlığı
-#   docker compose up mlflow             # deney takibi (:5000)
+#   docker compose run --rm evaluate     # an evaluation run
+#   docker compose run --rm prepare      # corpus + sample output preparation
+#   docker compose up mlflow             # experiment tracking (:5000)
 
 services:
   dashboard:
@@ -16,21 +16,21 @@ services:
       - ./db:/app/db
       - ./results:/app/results
       - ./mlruns:/app/mlruns
-      # "Model Ekle" sekmesinden yuklenen dosyalar buraya yazilir; volume
-      # olmadan container yeniden olusturulunca kaybolurlar.
+      # Files uploaded from the "Add Model" tab are written here; without
+      # this volume they'd be lost whenever the container is recreated.
       - ./llm_outputs:/app/llm_outputs
     environment:
       AITB__LOGGING__JSON_FORMAT: "true"
-      # Dashboard sifresi: python -m core.dashboard_auth ile hash uretip
-      # proje kokunde .env dosyasina AITB__DASHBOARD__PASSWORD_HASH=<hash>
-      # olarak yazin (.env repoya eklenmez). Bos birakilirsa erisim
-      # tamamen reddedilir (fail-closed).
+      # Dashboard password: generate a hash with python -m core.dashboard_auth
+      # and write it to a .env file at the project root as
+      # AITB__DASHBOARD__PASSWORD_HASH=<hash> (.env is not added to the repo).
+      # If left empty, access is fully denied (fail-closed).
       AITB__DASHBOARD__PASSWORD_HASH: ${AITB__DASHBOARD__PASSWORD_HASH:-}
     restart: unless-stopped
 
-  # Değerlendirme koşusu. Ağ erişimi kapalıdır: platform iç ağ / hava kapalı
-  # ortamda çalışacak şekilde tasarlandı ve hiçbir bileşen çalışma anında
-  # model veya veri indirmez.
+  # An evaluation run. Network access is disabled: the platform is designed
+  # to run on an internal / air-gapped network, and no component downloads
+  # a model or data at runtime.
   evaluate:
     build: .
     image: llm-trust:latest
@@ -57,16 +57,18 @@ services:
       HF_HUB_OFFLINE: "1"
       TRANSFORMERS_OFFLINE: "1"
       AITB__MLFLOW__TRACKING_URI: "file:/app/mlruns"
-      # read_only:true altinda /app'e yazilamaz; zehirlenme simulasyonunun
-      # onbellegi (settings.paths.poison_cache_dir) tek yazilabilir yer olan
-      # /tmp'e yonlendirilir. Aksi halde sessizce basarisiz olup poisoning
-      # skoru 0'a duser (bkz. llm_security/data_poisoning_sim.py).
+      # /app cannot be written to under read_only:true; the poisoning
+      # simulation's cache (settings.paths.poison_cache_dir) is redirected
+      # to /tmp, the only writable location. Otherwise it would fail
+      # silently and the poisoning score would drop to 0 (see
+      # llm_security/data_poisoning_sim.py).
       AITB__PATHS__POISON_CACHE_DIR: "/tmp/cache_poison"
     profiles: ["jobs"]
 
-  # Korpus indeksleme ve örnek çıktı üretimi. Bu adım embedding modeli
-  # indirebileceği için ağ erişimi açıktır; iç ağ kurulumunda modeli
-  # önceden diske koyup bu servisi de network_mode: none ile çalıştırın.
+  # Corpus indexing and sample output generation. This step has network
+  # access since it may download the embedding model; for an internal-network
+  # setup, place the model on disk ahead of time and run this service too
+  # with network_mode: none.
   prepare:
     build: .
     image: llm-trust:latest

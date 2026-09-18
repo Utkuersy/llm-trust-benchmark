@@ -1,15 +1,16 @@
-"""MLflow deney takibi katmanı.
+"""MLflow experiment tracking layer.
 
-Her benchmark koşusu bir MLflow "run" olarak loglanır:
-    * **params**  : model adı, hedef yol, track, konfigürasyon adı, araç sürümleri
-    * **metrics** : trust score + tüm alt metrikler
-    * **artifacts**: ham sonuç JSON'u
+Every benchmark run is logged as an MLflow "run":
+    * **params**  : model name, target path, track, config name, tool versions
+    * **metrics** : trust score + all sub-metrics
+    * **artifacts**: the raw result JSON
 
-MLflow kurulu değilse veya tracking sunucusuna erişilemiyorsa katman
-sessizce devre dışı kalır (``NullTracker``); benchmark akışı bozulmaz.
-Bu, CI ve air-gapped ortamlar için bilinçli bir tasarım kararıdır.
+If MLflow is not installed or the tracking server is unreachable, this
+layer silently disables itself (``NullTracker``); the benchmark flow is
+not disrupted. This is a deliberate design decision for CI and
+air-gapped environments.
 
-Kullanım::
+Usage::
 
     with tracker.start_run("gpt4", Track.A) as run_id:
         tracker.log_params({...})
@@ -34,7 +35,7 @@ logger = get_logger(__name__)
 
 
 def _flatten_metrics(prefix: str, payload: dict[str, Any]) -> dict[str, float]:
-    """İç içe sözlükten sayısal metrikleri düz anahtarlarla çıkarır."""
+    """Extracts numeric metrics from a nested dict into flat keys."""
     flat: dict[str, float] = {}
     for key, value in payload.items():
         name = f"{prefix}_{key}" if prefix else str(key)
@@ -46,19 +47,19 @@ def _flatten_metrics(prefix: str, payload: dict[str, Any]) -> dict[str, float]:
 
 
 class ExperimentTracker:
-    """MLflow sarmalayıcısı; MLflow yoksa tüm çağrılar no-op olur."""
+    """An MLflow wrapper; every call is a no-op if MLflow is unavailable."""
 
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or get_settings()
         self._mlflow: Any = None
         self._active = False
         if not self.settings.mlflow.enabled:
-            logger.info("mlflow konfigurasyonla devre disi birakildi")
+            logger.info("mlflow disabled via configuration")
             return
         try:
             import mlflow
         except ImportError:
-            logger.warning("mlflow yuklu degil, deney takibi atlanacak")
+            logger.warning("mlflow not installed, experiment tracking will be skipped")
             return
         try:
             uri = self.settings.mlflow.tracking_uri
@@ -66,13 +67,13 @@ class ExperimentTracker:
                 uri = "file:" + str(PROJECT_ROOT / uri.removeprefix("file:").lstrip("./"))
             mlflow.set_tracking_uri(uri)
             self._mlflow = mlflow
-            logger.info("mlflow hazir", extra={"tracking_uri": uri})
+            logger.info("mlflow ready", extra={"tracking_uri": uri})
         except Exception as exc:
-            logger.warning("mlflow baslatilamadi", extra={"error": str(exc)})
+            logger.warning("mlflow could not be initialized", extra={"error": str(exc)})
 
     @property
     def enabled(self) -> bool:
-        """MLflow gerçekten kullanılabilir durumda mı?"""
+        """Is MLflow actually usable?"""
         return self._mlflow is not None
 
     def _experiment_for(self, track: Track) -> str:
@@ -84,7 +85,7 @@ class ExperimentTracker:
 
     @contextmanager
     def start_run(self, run_name: str, track: Track) -> Iterator[str | None]:
-        """MLflow run'ı başlatır; devre dışıysa ``None`` verir."""
+        """Starts an MLflow run; yields ``None`` if disabled."""
         if not self.enabled:
             self._active = False
             yield None
@@ -98,31 +99,31 @@ class ExperimentTracker:
                 finally:
                     self._active = False
         except Exception as exc:
-            logger.warning("mlflow run baslatilamadi", extra={"error": str(exc)})
+            logger.warning("mlflow run could not be started", extra={"error": str(exc)})
             self._active = False
             yield None
 
     def log_params(self, params: dict[str, Any]) -> None:
-        """Parametreleri loglar (hatalar yutulur)."""
+        """Logs parameters (errors are swallowed)."""
         if not (self.enabled and self._active):
             return
         try:
             self._mlflow.log_params({k: str(v)[:250] for k, v in params.items()})
         except Exception as exc:
-            logger.debug("mlflow param loglanamadi", extra={"error": str(exc)})
+            logger.debug("mlflow param could not be logged", extra={"error": str(exc)})
 
     def log_metrics(self, metrics: dict[str, Any], prefix: str = "") -> None:
-        """Sayısal metrikleri düzleştirip loglar."""
+        """Flattens and logs numeric metrics."""
         if not (self.enabled and self._active):
             return
         flat = _flatten_metrics(prefix, metrics)
         try:
             self._mlflow.log_metrics(flat)
         except Exception as exc:
-            logger.debug("mlflow metrik loglanamadi", extra={"error": str(exc)})
+            logger.debug("mlflow metric could not be logged", extra={"error": str(exc)})
 
     def log_json_artifact(self, payload: dict[str, Any], filename: str) -> None:
-        """Sözlüğü JSON artifact olarak yükler."""
+        """Uploads a dict as a JSON artifact."""
         if not (self.enabled and self._active and self.settings.mlflow.log_artifacts):
             return
         try:
@@ -134,18 +135,18 @@ class ExperimentTracker:
                 )
                 self._mlflow.log_artifact(str(path))
         except Exception as exc:
-            logger.debug("mlflow artifact loglanamadi", extra={"error": str(exc)})
+            logger.debug("mlflow artifact could not be logged", extra={"error": str(exc)})
 
     def set_tags(self, tags: dict[str, Any]) -> None:
-        """Run etiketlerini ayarlar."""
+        """Sets run tags."""
         if not (self.enabled and self._active):
             return
         try:
             self._mlflow.set_tags({k: str(v)[:250] for k, v in tags.items()})
         except Exception as exc:
-            logger.debug("mlflow tag loglanamadi", extra={"error": str(exc)})
+            logger.debug("mlflow tag could not be logged", extra={"error": str(exc)})
 
 
 def get_tracker(settings: Settings | None = None) -> ExperimentTracker:
-    """Yeni bir tracker örneği döndürür."""
+    """Returns a new tracker instance."""
     return ExperimentTracker(settings)

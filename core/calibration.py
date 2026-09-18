@@ -1,33 +1,34 @@
-"""İnsan kalibrasyonu iskeleti.
+"""Human calibration scaffolding.
 
-**Dürüstlük notu — önce bunu oku.** Bu modül bir **araçtır**, bir
-**sonuç değildir**. Gerçek bir insan değerlendirme çalışması bu ortamda
-yapılmamıştır çünkü gerçek insan değerlendiriciler mevcut değildir.
-``run_calibration_demo()`` fonksiyonu ürettiği "kalibrasyon raporu"
-**yapay/sentetik veri üzerinde** çalışır ve bunu ``is_synthetic: True``
-alanıyla açıkça işaretler. Bu raporu gerçek bir bulgu gibi sunmak —
-"sistemimiz insan değerlendirmesiyle %87 örtüşüyor" demek — bu modülün
-var oluş amacının tam tersidir ve tespit edildiğinde projenin tamamının
-güvenilirliğini götürür.
+**An honesty note — read this first.** This module is a **tool**, not a
+**result**. No real human evaluation study has been conducted in this
+environment, because no real human evaluators are available. The
+"calibration report" produced by ``run_calibration_demo()`` runs **on
+synthetic data** and marks this explicitly with the ``is_synthetic:
+True`` field. Presenting this report as a genuine finding — saying "our
+system agrees with human evaluation 87% of the time" — is the exact
+opposite of what this module exists for, and if discovered, it would
+destroy the credibility of the entire project.
 
-**Asıl akış üç adımdır:**
+**The real workflow has three steps:**
 
-1. ``sample_for_labeling()`` — mevcut model çıktılarından rastgele bir
-   örneklem çıkarır, insan etiketleyicinin dolduracağı bir CSV/JSON şablonu
-   üretir. Sistemin kendi puanı bu şablonda **gösterilmez** — insan
-   etiketleyici sistemin ne dediğini bilerek etiketlerse çapa etkisi
-   (anchoring bias) oluşur.
-2. İnsan(lar) bu şablonu **kurum tarafından, gerçek değerlendiricilerle**
-   doldurur. Bu adım bu kütüphanenin kapsamı dışındadır.
-3. ``analyze_calibration()`` — doldurulmuş şablonu okur, sistem puanıyla
-   karşılaştırır, Spearman korelasyonu ve (ikili etiketse) precision/recall
-   hesaplar.
+1. ``sample_for_labeling()`` — draws a random sample from existing model
+   outputs and produces a CSV/JSON template for a human labeler to fill
+   in. The system's own score is **not shown** in this template — if a
+   human labeler labels while knowing what the system said, an anchoring
+   bias results.
+2. Human labeler(s), **provided by the organization, with real
+   evaluators**, fill in this template. This step is outside the scope
+   of this library.
+3. ``analyze_calibration()`` — reads the filled-in template, compares it
+   against the system score, and computes the Spearman correlation and
+   (for binary labels) precision/recall.
 
 CLI::
 
     python -m core.calibration sample --outputs llm_outputs/gpt4 --n 20
-    python -m core.calibration analyze --labels doldurulmus_sablon.json
-    python -m core.calibration demo   # SADECE mekanizmayi gostermek icin
+    python -m core.calibration analyze --labels filled_template.json
+    python -m core.calibration demo   # ONLY to demonstrate the mechanism
 """
 
 from __future__ import annotations
@@ -48,7 +49,7 @@ MIN_RECOMMENDED_SAMPLE = 100
 
 
 # --------------------------------------------------------------------------- #
-# Adım 1 — örnekleme ve şablon üretimi
+# Step 1 — sampling and template generation
 # --------------------------------------------------------------------------- #
 def sample_for_labeling(
     model_dir: Path,
@@ -56,10 +57,10 @@ def sample_for_labeling(
     dimension: str = "faithfulness",
     seed: int = 42,
 ) -> list[dict[str, Any]]:
-    """Etiketlenecek örnekleri seçer ve boş etiket alanlı şablon üretir.
+    """Selects samples to be labeled and produces a template with empty label fields.
 
-    Sistemin kendi puanı şablona **yazılmaz** — bu bilinçli bir tasarım
-    kararıdır (bkz. modül dokümanı).
+    The system's own score is **not written** into the template — this
+    is a deliberate design decision (see the module docstring).
     """
     from rag.rag_evaluator import load_llm_outputs
 
@@ -79,7 +80,7 @@ def sample_for_labeling(
                 "answer": record.get("answer", ""),
                 "contexts": record.get("contexts", []),
                 "dimension": dimension,
-                # İnsan etiketleyici doldurur — 0 (hayır) / 1 (evet) veya 1-5 ölçek.
+                # Filled in by the human labeler — 0 (no) / 1 (yes), or a 1-5 scale.
                 "human_label": None,
                 "human_notes": "",
             }
@@ -87,27 +88,27 @@ def sample_for_labeling(
 
     if n < MIN_RECOMMENDED_SAMPLE:
         logger.warning(
-            "ornek boyutu onerilen minimumun altinda",
-            extra={"n": n, "onerilen_minimum": MIN_RECOMMENDED_SAMPLE},
+            "sample size is below the recommended minimum",
+            extra={"n": n, "recommended_minimum": MIN_RECOMMENDED_SAMPLE},
         )
     return template
 
 
 def write_labeling_template(template: list[dict[str, Any]], output_path: Path) -> None:
-    """Şablonu JSON olarak yazar (insan etiketleyici bunu doldurur)."""
+    """Writes the template as JSON (the human labeler fills this in)."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(template, ensure_ascii=False, indent=2), encoding="utf-8")
     logger.info(
-        "etiketleme sablonu yazildi",
+        "labeling template written",
         extra={"path": str(output_path), "items": len(template)},
     )
 
 
 # --------------------------------------------------------------------------- #
-# Adım 3 — analiz
+# Step 3 — analysis
 # --------------------------------------------------------------------------- #
 def _spearman(x: Sequence[float], y: Sequence[float]) -> float:
-    """Bağımlılıksız Spearman sıra korelasyonu (SciPy gerektirmez)."""
+    """A dependency-free Spearman rank correlation (no SciPy required)."""
     n = len(x)
     if n < 2:
         return float("nan")
@@ -143,7 +144,7 @@ def _spearman(x: Sequence[float], y: Sequence[float]) -> float:
 
 
 def _binary_confusion(system_flags: Sequence[bool], human_flags: Sequence[bool]) -> dict[str, int]:
-    """İkili etiketler için karışıklık matrisi (precision/recall temeli)."""
+    """A confusion matrix for binary labels (the basis for precision/recall)."""
     tp = sum(1 for s, h in zip(system_flags, human_flags, strict=True) if s and h)
     fp = sum(1 for s, h in zip(system_flags, human_flags, strict=True) if s and not h)
     fn = sum(1 for s, h in zip(system_flags, human_flags, strict=True) if not s and h)
@@ -156,11 +157,11 @@ def analyze_calibration(
     system_scores: dict[str, float],
     is_synthetic: bool = False,
 ) -> dict[str, Any]:
-    """İnsan etiketleri ile sistem puanlarını karşılaştırır.
+    """Compares human labels against system scores.
 
-    ``labeled_items`` her biri ``item_id`` ve dolu ``human_label`` içeren
-    kayıtlardır (bkz. ``sample_for_labeling``). ``system_scores``,
-    ``item_id -> sistem puanı`` (0-1 veya 0-100) sözlüğüdür.
+    ``labeled_items`` are records each containing an ``item_id`` and a
+    filled-in ``human_label`` (see ``sample_for_labeling``).
+    ``system_scores`` is an ``item_id -> system score`` dict (0-1 or 0-100).
     """
     paired = [
         (system_scores[item["item_id"]], float(item["human_label"]))
@@ -180,8 +181,8 @@ def analyze_calibration(
             "n_labeled": len(paired),
             "n_unlabeled": unlabeled,
             "n_missing_system_score": missing_system_score,
-            "status": "yetersiz_veri",
-            "message": "korelasyon icin en az 2 eslesen etiket gerekli",
+            "status": "insufficient_data",
+            "message": "at least 2 matched labels are required for correlation",
         }
 
     system_values = [pair[0] for pair in paired]
@@ -194,7 +195,7 @@ def analyze_calibration(
         "n_unlabeled": unlabeled,
         "n_missing_system_score": missing_system_score,
         "spearman_correlation": round(correlation, 4) if correlation == correlation else None,
-        "status": "tamamlandi",
+        "status": "completed",
     }
 
     unique_human = set(human_values)
@@ -214,50 +215,50 @@ def analyze_calibration(
 
     if len(paired) < MIN_RECOMMENDED_SAMPLE:
         result["warning"] = (
-            f"örneklem boyutu ({len(paired)}) önerilen minimumun "
-            f"({MIN_RECOMMENDED_SAMPLE}) altında; sonuç ön bulgu sayılmalı, "
-            "kesin kalibrasyon değil"
+            f"sample size ({len(paired)}) is below the recommended minimum "
+            f"({MIN_RECOMMENDED_SAMPLE}); the result should be treated as a "
+            "preliminary finding, not a definitive calibration"
         )
 
     return result
 
 
 def format_report(analysis: dict[str, Any]) -> str:
-    """Analiz sonucunu okunabilir bir rapora çevirir."""
-    lines = ["=== Kalibrasyon Raporu ==="]
+    """Converts the analysis result into a readable report."""
+    lines = ["=== Calibration Report ==="]
     if analysis.get("is_synthetic"):
         lines.append(
-            "*** BU BİR GÖSTERİMDİR — SENTETİK VERİ ÜZERİNDE ÇALIŞIYOR ***"
+            "*** THIS IS A DEMONSTRATION — RUNNING ON SYNTHETIC DATA ***"
         )
         lines.append(
-            "*** Gerçek kalibrasyon için gerçek insan etiketleyicilerle "
-            "bir çalışma yürütülmelidir. ***"
+            "*** For real calibration, a study must be run with real "
+            "human labelers. ***"
         )
-    lines.append(f"Eşleşen etiket sayısı: {analysis.get('n_labeled', 0)}")
-    lines.append(f"Etiketlenmemiş: {analysis.get('n_unlabeled', 0)}")
-    if analysis.get("status") == "yetersiz_veri":
-        lines.append(f"Durum: {analysis['message']}")
+    lines.append(f"Matched label count: {analysis.get('n_labeled', 0)}")
+    lines.append(f"Unlabeled: {analysis.get('n_unlabeled', 0)}")
+    if analysis.get("status") == "insufficient_data":
+        lines.append(f"Status: {analysis['message']}")
         return "\n".join(lines)
 
-    lines.append(f"Spearman korelasyonu: {analysis.get('spearman_correlation')}")
+    lines.append(f"Spearman correlation: {analysis.get('spearman_correlation')}")
     if "precision" in analysis:
         lines.append(f"Precision: {analysis.get('precision')}")
         lines.append(f"Recall: {analysis.get('recall')}")
-        lines.append(f"Karışıklık matrisi: {analysis.get('confusion_matrix')}")
+        lines.append(f"Confusion matrix: {analysis.get('confusion_matrix')}")
     if analysis.get("warning"):
-        lines.append(f"UYARI: {analysis['warning']}")
+        lines.append(f"WARNING: {analysis['warning']}")
     return "\n".join(lines)
 
 
 # --------------------------------------------------------------------------- #
-# Gösterim (demo) — asla gerçek bulgu olarak sunulmamalı
+# Demonstration — must never be presented as a real finding
 # --------------------------------------------------------------------------- #
 def run_calibration_demo(seed: int = 7) -> dict[str, Any]:
-    """Mekanizmayı sentetik veriyle gösterir.
+    """Demonstrates the mechanism with synthetic data.
 
-    Bu fonksiyonun ürettiği sayılar **gerçek insan değerlendirmesi
-    değildir**. Yalnızca ``analyze_calibration`` fonksiyonunun doğru
-    çalıştığını göstermek için rastgele üretilmiş verilerle çalışır.
+    The numbers this function produces are **not real human evaluation**.
+    It runs only on randomly generated data, to demonstrate that the
+    ``analyze_calibration`` function works correctly.
     """
     rng = random.Random(seed)
     n = 40
@@ -273,27 +274,27 @@ def run_calibration_demo(seed: int = 7) -> dict[str, Any]:
 
     analysis = analyze_calibration(items, scores, is_synthetic=True)
     analysis["_disclaimer"] = (
-        "Bu rapor sentetik (yapay üretilmiş) veri kullanır. Gerçek bir "
-        "kalibrasyon bulgusu değildir ve bu şekilde sunulmamalıdır."
+        "This report uses synthetic (artificially generated) data. It is "
+        "not a real calibration finding and must not be presented as one."
     )
     return analysis
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Insan kalibrasyonu iskeleti")
+    parser = argparse.ArgumentParser(description="Human calibration scaffolding")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    sample_parser = subparsers.add_parser("sample", help="Etiketleme sablonu uret")
+    sample_parser = subparsers.add_parser("sample", help="Generate a labeling template")
     sample_parser.add_argument("--outputs", required=True)
     sample_parser.add_argument("--n", type=int, default=30)
     sample_parser.add_argument("--dimension", default="faithfulness")
     sample_parser.add_argument("--out", default="calibration_template.json")
 
-    analyze_parser = subparsers.add_parser("analyze", help="Doldurulmus sablonu analiz et")
+    analyze_parser = subparsers.add_parser("analyze", help="Analyze a filled-in template")
     analyze_parser.add_argument("--labels", required=True)
-    analyze_parser.add_argument("--scores", required=True, help="item_id -> puan JSON dosyasi")
+    analyze_parser.add_argument("--scores", required=True, help="a JSON file of item_id -> score")
 
-    subparsers.add_parser("demo", help="SENTETIK veriyle mekanizmayi goster")
+    subparsers.add_parser("demo", help="Demonstrate the mechanism with SYNTHETIC data")
 
     args = parser.parse_args()
 
@@ -303,8 +304,8 @@ def main() -> None:
             path = PROJECT_ROOT / path
         template = sample_for_labeling(path, n=args.n, dimension=args.dimension)
         write_labeling_template(template, Path(args.out))
-        print(f"{len(template)} öğelik şablon yazıldı: {args.out}")
-        print("İnsan etiketleyici 'human_label' alanlarını doldurmalı.")
+        print(f"a {len(template)}-item template was written: {args.out}")
+        print("The human labeler must fill in the 'human_label' fields.")
 
     elif args.command == "analyze":
         labels = json.loads(Path(args.labels).read_text(encoding="utf-8"))

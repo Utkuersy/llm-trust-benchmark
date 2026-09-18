@@ -1,35 +1,34 @@
-# Küfür ve kaba hakaret kökleri
+# General profanity / crude-language roots
 #
-# Kaynak: LDNOOBW (List of Dirty, Naughty, Obscene, and Otherwise Bad
-# Words) projesinin Türkçe listesi — 75 dili kapsayan, açık kaynaklı,
-# içerik moderasyonu amaçlı topluluk listesi.
+# Source: LDNOOBW (List of Dirty, Naughty, Obscene, and Otherwise Bad
+# Words) English list — an open-source, community-maintained list
+# covering 75 languages, intended for content-moderation use.
 # https://github.com/LDNOOBW/List-of-Dirty-Naughty-Obscene-and-Otherwise-Bad-Words
 #
-# Kategori sınırı (profanity = hedefsiz/genel kaba dil, insult = kişiye
-# yönelik hedefli aşağılama): Çöltekin, Ç. (2020). "A Corpus of Turkish
-# Offensive Language on Social Media." LREC 2020 — OffensEval hiyerarşik
-# etiketleme şemasını (offensive/not -> targeted/untargeted) esas alır.
+# Category boundary (profanity = untargeted/general crude language,
+# insult = targeted personal put-down): Çöltekin, Ç. (2020). "A Corpus of
+# Turkish Offensive Language on Social Media." LREC 2020 — based on the
+# OffensEval hierarchical labeling scheme (offensive/not -> targeted/
+# untargeted).
 #
-# Kaynaktaki çekimli formların çoğu, bu sistemin kök-önek eşleştirmesi
-# (``token.startswith(root)``) tarafından zaten otomatik yakalanır; yalnızca
-# Türkçe ünsüz yumuşaması nedeniyle önekle örtüşmeyen formlar (ör.
-# "kaltak" -> "kaltağa") ayrıca eklenmiştir. Aşırı kısa/genel kökler
-# (ör. "sik", "göt") kasıtlı olarak dışlanmıştır: gerçek kelimelerle
-# çakışıp yanlış pozitif üretirler ("sikke"=para birimi, "götürmek"=taşımak).
+# Most inflected forms are already caught by this system's prefix
+# matching (``token.startswith(root)``); only base roots are listed here.
+# Overly short/generic roots (e.g. "ass", "cock") are deliberately
+# excluded: they collide with unrelated real words and produce false
+# positives ("assistant", "cockpit", "cockatoo").
 #
-# BİLİNEN SINIRLAMA: Bu liste bir başlangıç noktasıdır, kurumsal onaylı
-# nihai liste değildir. Kurumun kendi üslup/marka kurallarına göre gözden
-# geçirmesi önerilir.
-aptal
-salak
-gerizekal
-siktir
-sikmek
-sike
-orospu
-kaltak
-kaltağ
-götveren
-amcık
-amcığ
-sıçmak
+# KNOWN LIMITATION: This list is a starting point, not an
+# organization-approved final list. It is recommended that the
+# organization review it against its own tone/brand guidelines.
+idiot
+stupid
+moron
+dumbass
+damn
+crap
+shit
+bullshit
+fuck
+fucking
+bastard
+bitch

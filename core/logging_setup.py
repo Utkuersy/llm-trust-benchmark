@@ -1,14 +1,14 @@
-"""Yapılandırılmış (JSON) loglama katmanı.
+"""Structured (JSON) logging layer.
 
-Projede ``print()`` kullanımı yasaktır (CLI script'lerinin son çıktı satırı
-hariç). Tüm modüller::
+Using ``print()`` in this project is forbidden (except for a CLI
+script's final output line). Every module::
 
     from core.logging_setup import get_logger
     logger = get_logger(__name__)
-    logger.info("analiz basladi", extra={"model": "gpt4", "track": "A"})
+    logger.info("analysis started", extra={"model": "gpt4", "track": "A"})
 
-``extra`` içindeki alanlar JSON log satırına düz alan olarak eklenir; bu
-sayede loglar Loki/ELK gibi sistemlerde doğrudan sorgulanabilir.
+Fields inside ``extra`` are added to the JSON log line as flat fields;
+this lets logs be queried directly in systems like Loki/ELK.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from core.config import PROJECT_ROOT, get_settings
 
 _CONFIGURED = False
 
-# LogRecord'un standart alanları; bunların dışındakiler "extra" sayılır.
+# LogRecord's standard fields; anything outside these counts as "extra".
 _RESERVED = {
     "args", "asctime", "created", "exc_info", "exc_text", "filename", "funcName",
     "levelname", "levelno", "lineno", "module", "msecs", "message", "msg", "name",
@@ -34,7 +34,7 @@ _RESERVED = {
 
 
 class JsonFormatter(logging.Formatter):
-    """LogRecord'u tek satır JSON'a çevirir."""
+    """Converts a LogRecord into a single line of JSON."""
 
     def format(self, record: logging.LogRecord) -> str:
         payload: dict[str, Any] = {
@@ -55,7 +55,7 @@ class JsonFormatter(logging.Formatter):
 
 
 class HumanFormatter(logging.Formatter):
-    """Geliştirici konsolu için okunabilir format."""
+    """A readable format for the developer console."""
 
     def __init__(self) -> None:
         super().__init__(
@@ -65,7 +65,7 @@ class HumanFormatter(logging.Formatter):
 
 
 def _safe(value: Any) -> Any:
-    """JSON'a serialize edilemeyen değerleri stringe düşürür."""
+    """Falls back to a string for values that cannot be JSON-serialized."""
     if isinstance(value, (str, int, float, bool, type(None))):
         return value
     if isinstance(value, (list, tuple)):
@@ -76,7 +76,7 @@ def _safe(value: Any) -> Any:
 
 
 def configure_logging(force: bool = False) -> None:
-    """Kök logger'ı konfigürasyona göre kurar (idempotent)."""
+    """Sets up the root logger based on configuration (idempotent)."""
     global _CONFIGURED
     if _CONFIGURED and not force:
         return
@@ -103,7 +103,7 @@ def configure_logging(force: bool = False) -> None:
         file_handler.setFormatter(JsonFormatter())
         root.addHandler(file_handler)
 
-    # Gürültülü üçüncü parti logger'ları kıs.
+    # Quiet down noisy third-party loggers.
     for noisy in ("urllib3", "matplotlib", "chromadb", "httpx", "sentence_transformers"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
@@ -111,6 +111,6 @@ def configure_logging(force: bool = False) -> None:
 
 
 def get_logger(name: str) -> logging.Logger:
-    """Kurulumu garanti edilmiş bir logger döndürür."""
+    """Returns a logger with setup guaranteed."""
     configure_logging()
     return logging.getLogger(name)

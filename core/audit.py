@@ -1,29 +1,31 @@
-"""Denetim izi (audit trail) katmanı.
+"""The audit trail layer.
 
-Her benchmark koşusu, **kim, ne zaman, hangi kod ve konfigürasyonla**
-çalıştırdı sorusuna kanıt sunan bir kayıt bırakır. Bu, NIST AI RMF'nin
-Govern fonksiyonu ve ISO/IEC 42001'in 9.2 (iç denetim) maddesinin somut
-karşılığıdır — bkz. ``docs/GOVERNANCE_ALIGNMENT.md``.
+Every benchmark run leaves a record that provides evidence for the
+question **who ran it, when, with which code, and with which
+configuration**. This is the concrete counterpart to the NIST AI RMF's
+Govern function and ISO/IEC 42001's clause 9.2 (internal audit) — see
+``docs/GOVERNANCE_ALIGNMENT.md``.
 
-**Değiştirilemezlik (tamper-evidence).** Bu bir blockchain değildir; amaç
-dağıtık mutabakat değil, **sonradan sessizce değiştirilmiş bir kaydı
-tespit edebilmektir**. Her girdi bir önceki girdinin hash'ini içerir
-(basit hash zinciri). Zincirin ortasındaki bir satır değiştirilirse veya
-silinirse, ondan sonraki tüm satırların hash'i tutmaz ve ``verify_chain()``
-bunu tespit eder.
+**Tamper-evidence.** This is not a blockchain; the goal is not
+distributed consensus, but **being able to detect a record that was
+silently altered afterward**. Each entry contains the hash of the
+previous entry (a simple hash chain). If a line in the middle of the
+chain is modified or deleted, the hash of every line after it stops
+matching, and ``verify_chain()`` detects this.
 
-Kayıt edilenler:
-    * kim   — işletim sistemi kullanıcısı, hostname
-    * ne zaman — UTC zaman damgası
-    * hangi kod — git commit hash (varsa), yoksa "unknown" (asla uydurulmaz)
-    * hangi konfigürasyon — settings.yaml içeriğinin SHA-256'sı
-    * hangi test verisi — korpus + senaryo + sözlük dosyalarının birleşik
-      hash'i (bkz. ``core/versioning.py``)
+What is recorded:
+    * who        — the OS user, hostname
+    * when       — a UTC timestamp
+    * which code — the git commit hash (if available), otherwise
+      "unknown" (never fabricated)
+    * which configuration — the SHA-256 of settings.yaml's contents
+    * which test data — the combined hash of the corpus + scenario +
+      lexicon files (see ``core/versioning.py``)
 
-Kullanım::
+Usage::
 
     entry = record_run(run_id="E-gpt4-...", preset="output_safety_first")
-    verify_chain()  # -> (True, []) ya da (False, ["satır 4 tutarsız"])
+    verify_chain()  # -> (True, []) or (False, ["line 4 inconsistent"])
 """
 
 from __future__ import annotations
@@ -33,7 +35,7 @@ import hashlib
 import json
 import os
 import socket
-import subprocess  # nosec B404 - sabit git komutu, shell=False
+import subprocess  # nosec B404 - a fixed git command, shell=False
 import sys
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -52,7 +54,7 @@ GENESIS_HASH = "0" * 64
 
 @dataclass
 class AuditEntry:
-    """Tek bir denetim izi kaydı."""
+    """A single audit trail record."""
 
     sequence: int
     entry_hash: str
@@ -69,7 +71,7 @@ class AuditEntry:
     extra: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        """Serileştirilebilir gösterim."""
+        """A serializable representation."""
         return {
             "sequence": self.sequence,
             "entry_hash": self.entry_hash,
@@ -108,7 +110,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_run ON audit_log(run_id);
 
 
 def init_audit_schema(settings: Settings | None = None) -> None:
-    """Denetim izi tablosunu oluşturur (idempotent)."""
+    """Creates the audit trail table (idempotent)."""
     with connect(settings) as connection:
         connection.executescript(_SCHEMA)
 
@@ -129,11 +131,11 @@ def _current_host() -> str:
 
 @lru_cache(maxsize=1)
 def _git_commit() -> str:
-    """Mevcut git commit hash'ini döndürür; yoksa 'unknown' — asla uydurulmaz.
+    """Returns the current git commit hash; 'unknown' if unavailable — never fabricated.
 
-    Süreç başına bir kez hesaplanıp önbelleğe alınır: git durumu bir
-    sürecin ömrü boyunca değişmez, her kayıtta yeniden subprocess
-    çağırmanın hem performans hem dosya tanıtıcısı maliyeti var.
+    Computed and cached once per process: git state doesn't change over
+    a process's lifetime, and calling a subprocess again on every record
+    has both a performance and a file-handle cost.
     """
     try:
         result = subprocess.run(  # nosec B603, B607
@@ -152,10 +154,10 @@ def _git_commit() -> str:
 
 
 def _config_hash(_settings: Settings) -> str:
-    """settings.yaml içeriğinin SHA-256'sı — konfigürasyon değişikliği tespiti.
+    """The SHA-256 of settings.yaml's contents — for detecting configuration changes.
 
-    ``AITB_CONFIG_PATH`` ile özel bir config dosyası verilmişse onu, aksi
-    halde varsayılanı hash'ler — ``get_settings()`` ile aynı çözümleme.
+    Hashes the custom config file given via ``AITB_CONFIG_PATH`` if set,
+    otherwise the default — the same resolution as ``get_settings()``.
     """
     config_path = Path(os.environ.get("AITB_CONFIG_PATH") or DEFAULT_CONFIG_PATH)
     if not config_path.exists():
@@ -165,7 +167,7 @@ def _config_hash(_settings: Settings) -> str:
 
 
 def _last_entry(connection: Any) -> tuple[int, str]:
-    """Zincirdeki son kaydın (sequence, hash) değerini döndürür."""
+    """Returns the (sequence, hash) of the last entry in the chain."""
     row = connection.execute(
         "SELECT sequence, entry_hash FROM audit_log ORDER BY sequence DESC LIMIT 1"
     ).fetchone()
@@ -175,7 +177,7 @@ def _last_entry(connection: Any) -> tuple[int, str]:
 
 
 def _compute_hash(previous_hash: str, payload: dict[str, Any]) -> str:
-    """Bir kaydın hash'ini önceki hash + kendi içeriğinden hesaplar."""
+    """Computes a record's hash from the previous hash + its own content."""
     canonical = json.dumps(payload, sort_keys=True, ensure_ascii=False)
     digest_input = f"{previous_hash}|{canonical}".encode()
     return hashlib.sha256(digest_input).hexdigest()
@@ -188,7 +190,7 @@ def record_run(
     extra: dict[str, Any] | None = None,
     settings: Settings | None = None,
 ) -> AuditEntry:
-    """Bir benchmark koşusu için denetim izi kaydı ekler (zincire eklenir)."""
+    """Adds an audit trail record for a benchmark run (appended to the chain)."""
     settings = settings or get_settings()
     init_audit_schema(settings)
 
@@ -242,14 +244,14 @@ def record_run(
         extra=payload["extra"],
     )
     logger.info(
-        "denetim izi kaydedildi",
+        "audit trail record written",
         extra={"run_id": run_id, "sequence": entry.sequence, "code_version": entry.code_version},
     )
     return entry
 
 
 def fetch_audit_log(run_id: str | None = None, settings: Settings | None = None) -> list[dict[str, Any]]:
-    """Denetim izi kayıtlarını döndürür (opsiyonel run_id filtresiyle)."""
+    """Returns audit trail records (optionally filtered by run_id)."""
     settings = settings or get_settings()
     init_audit_schema(settings)
     with connect(settings) as connection:
@@ -271,11 +273,11 @@ def fetch_audit_log(run_id: str | None = None, settings: Settings | None = None)
 
 
 def verify_chain(settings: Settings | None = None) -> tuple[bool, list[str]]:
-    """Zincirin bütünlüğünü doğrular; kurcalanmış satırları raporlar.
+    """Verifies the chain's integrity; reports any tampered lines.
 
-    Her kaydın hash'i (önceki_hash + kendi_içeriği)'nden yeniden hesaplanır
-    ve saklanan hash ile karşılaştırılır. Uyuşmazlık, o satırın veya ondan
-    önceki bir satırın değiştirildiği anlamına gelir.
+    Each record's hash is recomputed from (previous_hash + its own
+    content) and compared against the stored hash. A mismatch means that
+    line, or a line before it, was modified.
     """
     entries = fetch_audit_log(settings=settings)
     if not entries:
@@ -287,8 +289,8 @@ def verify_chain(settings: Settings | None = None) -> tuple[bool, list[str]]:
     for entry in entries:
         if entry["previous_hash"] != expected_previous:
             problems.append(
-                f"sequence {entry['sequence']}: previous_hash zincirle uyusmuyor "
-                f"(beklenen {expected_previous[:12]}..., bulunan {entry['previous_hash'][:12]}...)"
+                f"sequence {entry['sequence']}: previous_hash does not match the chain "
+                f"(expected {expected_previous[:12]}..., found {entry['previous_hash'][:12]}...)"
             )
 
         payload = {
@@ -306,25 +308,25 @@ def verify_chain(settings: Settings | None = None) -> tuple[bool, list[str]]:
         recomputed = _compute_hash(entry["previous_hash"], payload)
         if recomputed != entry["entry_hash"]:
             problems.append(
-                f"sequence {entry['sequence']}: icerik hash'i tutmuyor — "
-                f"kayit degistirilmis olabilir"
+                f"sequence {entry['sequence']}: content hash does not match — "
+                f"the record may have been altered"
             )
 
         expected_previous = entry["entry_hash"]
 
     ok = not problems
     if ok:
-        logger.info("denetim izi zinciri dogrulandi", extra={"entries": len(entries)})
+        logger.info("audit trail chain verified", extra={"entries": len(entries)})
     else:
-        logger.error("denetim izi zincirinde tutarsizlik", extra={"problems": problems})
+        logger.error("inconsistency found in the audit trail chain", extra={"problems": problems})
     return ok, problems
 
 
 def main() -> None:
-    """CLI: denetim izini listele veya doğrula."""
+    """CLI: list or verify the audit trail."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="Denetim izi araci")
+    parser = argparse.ArgumentParser(description="Audit trail tool")
     parser.add_argument("action", choices=["list", "verify"])
     parser.add_argument("--run-id", default=None)
     args = parser.parse_args()
@@ -332,9 +334,9 @@ def main() -> None:
     if args.action == "verify":
         ok, problems = verify_chain()
         if ok:
-            print("Zincir bütünlüğü doğrulandı, kurcalama tespit edilmedi.")
+            print("Chain integrity verified, no tampering detected.")
         else:
-            print("UYARI — zincirde tutarsızlık tespit edildi:")
+            print("WARNING — inconsistency detected in the chain:")
             for problem in problems:
                 print(f"  - {problem}")
             sys.exit(1)
@@ -342,8 +344,8 @@ def main() -> None:
         for entry in fetch_audit_log(args.run_id):
             print(
                 f"[{entry['sequence']:04d}] {entry['timestamp']} | {entry['run_id']} | "
-                f"kullanıcı={entry['triggered_by']}@{entry['hostname']} | "
-                f"kod={entry['code_version']} | preset={entry['preset']}"
+                f"user={entry['triggered_by']}@{entry['hostname']} | "
+                f"code={entry['code_version']} | preset={entry['preset']}"
             )
 
 

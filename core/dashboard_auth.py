@@ -1,18 +1,19 @@
-"""Dashboard şifresi için hash üretici.
+"""Hash generator for the dashboard password.
 
-Streamlit dashboard'u (``app.py``) düz metin şifreyi hiçbir yerde saklamaz;
-``AITB__DASHBOARD__PASSWORD_HASH`` ortam değişkeninde tutulan bir SHA-256
-hash'ine karşı doğrulama yapar. Bu script yalnızca o hash'i üretmek içindir.
+The Streamlit dashboard (``app.py``) never stores the plaintext password
+anywhere; it validates against a SHA-256 hash held in the
+``AITB__DASHBOARD__PASSWORD_HASH`` environment variable. This script
+exists solely to generate that hash.
 
-Kullanım::
+Usage::
 
     python -m core.dashboard_auth
-    (şifre sorulur, ekrana yazılmaz, hash stdout'a basılır)
+    (you'll be prompted for a password, not echoed, the hash is printed to stdout)
 
-Üretilen hash'i ortam değişkenine ata::
+Assign the generated hash to the environment variable::
 
-    export AITB__DASHBOARD__PASSWORD_HASH=<uretilen_hash>   # Linux/Mac
-    $env:AITB__DASHBOARD__PASSWORD_HASH = "<uretilen_hash>"  # PowerShell
+    export AITB__DASHBOARD__PASSWORD_HASH=<generated_hash>   # Linux/Mac
+    $env:AITB__DASHBOARD__PASSWORD_HASH = "<generated_hash>"  # PowerShell
 """
 
 from __future__ import annotations
@@ -22,17 +23,17 @@ import hashlib
 
 
 def hash_password(password: str) -> str:
-    """Şifrenin SHA-256 hex özetini döndürür."""
+    """Returns the SHA-256 hex digest of the password."""
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 
 def main() -> None:
-    password = getpass.getpass("Dashboard sifresi: ")
-    confirm = getpass.getpass("Sifre (tekrar): ")
+    password = getpass.getpass("Dashboard password: ")
+    confirm = getpass.getpass("Password (again): ")
     if not password:
-        raise SystemExit("Bos sifre kabul edilmez.")
+        raise SystemExit("An empty password is not accepted.")
     if password != confirm:
-        raise SystemExit("Sifreler eslesmedi.")
+        raise SystemExit("Passwords did not match.")
     print(hash_password(password))
 
 

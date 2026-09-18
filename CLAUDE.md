@@ -1,68 +1,73 @@
 # CLAUDE.md
 
-Bu dosya, Claude Code'un bu projede çalışırken otomatik okuduğu bağlam
-dosyasıdır. Amaç: projeyi baştan anlatmak zorunda kalmadan, geçmişteki
-tasarım kararlarını ve bilinen sınırları Claude Code'a aktarmak.
+This file is the context file Claude Code automatically reads when
+working on this project. Purpose: to hand Claude Code past design
+decisions and known limits, without having to re-explain the project
+from scratch.
 
-## Proje nedir
+## What the project is
 
-Kurumsal bir RAG asistanının **çıktılarını** güvenilirlik açısından ölçen,
-iç ağda çalışacak şekilde tasarlanmış bir değerlendirme platformu. Model
-kodunu değil, modelin ürettiği cevapları denetler. Yedi boyutta ölçüm
-yapıp 0-100 arası tek bir Trust Score üretir.
+An evaluation platform designed to run on an internal network, measuring
+the **output** reliability of a corporate RAG assistant. It audits the
+model's answers, not its code. It measures across seven dimensions and
+produces a single 0-100 Trust Score.
 
-## Kritik geçmiş — bunları tekrar önermeye çalışma
+## Critical history — don't try to re-propose these
 
-**Track A (kod güvenilirliği hattı) kasıtlı olarak kaldırıldı.** Proje
-başta iki paralel hat olarak kurgulandı: kod analizi (Pylint/Bandit/sandbox)
-ve LLM çıktı analizi. Staj görevlisinin geri bildirimi üzerine kod hattı
-tamamen silindi çünkü kurumun önceliği asistanın *ne söylediği*, AI'ın
-*nasıl kod yazdığı* değil. Eğer bir görev "kod kalitesi de eklensin" gibi
-bir şey istemiyorsa, bu konuyu yeniden gündeme getirme.
+**Track A (the code-trustworthiness track) was deliberately removed.**
+The project was originally set up as two parallel tracks: code analysis
+(Pylint/Bandit/sandbox) and LLM output analysis. Based on the internship
+supervisor's feedback, the code track was fully deleted because the
+organization's priority is *what the assistant says*, not *how the AI
+writes code*. Unless a task explicitly asks for something like "also add
+code quality," don't bring this back up.
 
-**"EU AI Act uyumu" iddiası bilerek terk edildi.** İlk planda en yüksek
-öncelik EU AI Act'e uyumdu. Araştırma sonucu bu yanlış çıktı: Madde 2(3)
-askeri/savunma amaçlı sistemleri kapsam dışı bırakıyor, ayrıca şirket AB
-üyesi olmayan bir ülkede. Bunun yerine **NIST AI RMF** ve **ISO/IEC
-42001** (gönüllü, coğrafyadan bağımsız) birincil çapa yapıldı; EU AI Act
-yalnızca "bağlayıcı olmasa da iyi tasarım referansı" olarak ikincil
-konumda tutuluyor. Detay: `docs/GOVERNANCE_ALIGNMENT.md`. Bu ayrımı asla
-gevşetme — "AI Act'e tabiyiz" gibi bir cümle yazma.
+**The "EU AI Act compliance" claim was deliberately abandoned.** The
+original plan's top priority was EU AI Act compliance. Research showed
+this was the wrong framing: Article 2(3) excludes military/defense
+systems from scope, and the company is also based outside the EU.
+**NIST AI RMF** and **ISO/IEC 42001** (voluntary, geography-independent)
+were made the primary anchor instead; the EU AI Act is kept only as a
+secondary "non-binding but a good design reference." Details:
+`docs/GOVERNANCE_ALIGNMENT.md`. Never loosen this distinction — don't
+write a sentence like "we are subject to the AI Act."
 
-**Ağırlıklar "ölçülmedi", türetildi.** ISO/IEC 25010'un 9 karakteristiğinden
-3'ü (Safety, Security, Functional suitability) bu proje için seçildi ve
-aralarına eşit ağırlık verildi — bu standardın kendi emri değil, projenin
-kararı. Security içindeki alt bölüşüm (injection:pii:poisoning = 3:2:1)
-OWASP LLM Top 10 sıralamasından rank-sum yöntemiyle geldi. Bkz.
-`docs/METHODOLOGY.md`. Sakın "ağırlıkları ölçtük" diye yazma; "türettik"
-veya "belgelenmiş bir yöntemle seçtik" de.
+**Weights were "derived," not "measured."** 3 of ISO/IEC 25010's 9
+characteristics (Safety, Security, Functional suitability) were selected
+for this project and weighted equally between them — this is the
+project's decision, not the standard's own mandate. The sub-split within
+Security (injection:pii:poisoning = 3:2:1) came from a rank-sum method
+applied to the OWASP LLM Top 10 ranking. See `docs/METHODOLOGY.md`.
+Never write "we measured the weights"; say "we derived them" or "we
+selected them with a documented method."
 
-**İnsan kalibrasyonu gerçek değil, iskelet.** `core/calibration.py`
-örnekleme + analiz araçlarını içerir ama gerçek insan etiketleyici verisi
-yoktur. `demo` komutu ürettiği her sayıyı `is_synthetic: true` ile
-işaretler. Bu modülü asla "kalibre edildi" diye sunma; gerçek bir insan
-etiketleme çalışması yapılmadan bu iddia doğru değil.
+**Human calibration is scaffolding, not real.** `core/calibration.py`
+contains sampling + analysis tools, but there is no real human labeler
+data. The `demo` command marks every number it produces with
+`is_synthetic: true`. Never present this module as "calibrated"; that
+claim is not true until a real human labeling study is done.
 
-## Mimari — yedi katman, tek yönlü bağımlılık
+## Architecture — seven layers, one-way dependency
 
 ```
 config/settings.yaml (Pydantic)
   → core/ (schemas, logging, storage, tracking, scoring, trace, audit, versioning)
-    → llm_security/, rag/, capability/ (7 boyutun analiz modülleri)
-      → core/dimensions.py (kayıt sistemi — boyutlar kendini kaydeder)
-        → benchmark_engine.py (orkestrasyon)
-          → app.py (Streamlit dashboard, sadece okur)
+    → llm_security/, rag/, capability/ (the seven dimensions' analysis modules)
+      → core/dimensions.py (the registry — dimensions register themselves)
+        → benchmark_engine.py (orchestration)
+          → app.py (Streamlit dashboard, read-only)
 ```
 
-**Boyutlar motora gömülü değil, kayıtlı (registry pattern).** Yeni bir
-ölçüm boyutu eklemek `benchmark_engine.py`'yi değiştirmeyi gerektirmez —
-`core/dimensions.py` içinde `register(Dimension(...))` çağrısı yeterli.
-Bu iddia `tests/test_dimension_registry.py` ile kanıtlanmış durumda; yeni
-bir boyut eklersen bu testin mantığını bozma.
+**Dimensions are registered, not hardcoded into the engine (registry
+pattern).** Adding a new measurement dimension does not require changing
+`benchmark_engine.py` — a `register(Dimension(...))` call inside
+`core/dimensions.py` is enough. This claim is proven by
+`tests/test_dimension_registry.py`; if you add a new dimension, don't
+break that test's logic.
 
-## Yedi boyut ve ISO sütunları
+## The seven dimensions and their ISO pillars
 
-| Sütun | Boyut | Ağırlık |
+| Pillar | Dimension | Weight |
 |---|---|---|
 | Safety | content_safety | 0.33 |
 | Security | injection (OWASP LLM01) | 0.17 |
@@ -72,63 +77,68 @@ bir boyut eklersen bu testin mantığını bozma.
 | Functional | generation (faithfulness) | 0.11 |
 | Functional | math | 0.11 |
 
-## Fallback zincirleri — bilinçli tasarım, "eksik" değil
+## Fallback chains — deliberate design, not "incomplete"
 
-Ağır bağımlılıklar (chromadb, sentence-transformers, ragas) opsiyoneldir.
-Yoklarsa sistem sırasıyla NumPy vektör deposu, hashing embedding, heuristic
-faithfulness moduna düşer. Hangisinin kullanıldığı her sonuçta `backend`
-alanında raporlanır. Bunu "kırık" sanıp zorla ağır paket kurmaya çalışma;
-bu davranış kasıtlı ve iç ağ (offline) senaryosu için gerekli.
+Heavy dependencies (chromadb, sentence-transformers, ragas) are
+optional. When absent, the system falls back in order to a NumPy vector
+store, a hashing embedding, a heuristic faithfulness mode. Which one was
+used is reported in the `backend` field of every result. Don't assume
+this is "broken" and try to force-install the heavy packages; this
+behavior is deliberate and needed for the internal-network (offline)
+scenario.
 
-## Denetim izi ve versiyonlama
+## Audit trail and versioning
 
-`core/audit.py` hash-zincirli, değiştirilemez bir kayıt tutar (kim, ne
-zaman, hangi kod/config sürümü). `core/versioning.py` test verisinin
-(korpus, senaryolar, sözlükler) hash'ini alıp "puan farkı veri
-değişikliğinden mi model değişikliğinden mi" sorusunu otomatik ayırır.
-Bu ikisini kaldırma veya basitleştirme — staj görevlisinin özellikle
-istediği "denetlenebilirlik" gereksinimini karşılıyorlar.
+`core/audit.py` keeps a hash-chained, immutable record (who, when, which
+code/config version). `core/versioning.py` hashes the test data (corpus,
+scenarios, lexicons) and automatically disambiguates "is a score
+difference from a data change or a model change." Don't remove or
+simplify these two — they satisfy the "auditability" requirement the
+supervisor specifically asked for.
 
-## Test paketi
+## Test suite
 
-172 test geçiyor, 2'si bilinçli `xfail` (sözlük tabanlı içerik filtresinin
-bağlam duyarsızlığı — bilinen ve belgelenmiş bir sınır, "düzeltme" deme).
-Test kategorileri: işlevsel (HateCheck yöntemi, karşıt vakalar dahil),
-dayanıklılık (ReDoS, log injection, kaynak tüketimi), doğrulayıcı (Luhn,
-IBAN, TCKN, matematik denkliği), kayıt sistemi, denetim izi.
+172 tests pass, 2 are deliberate `xfail` (the lexicon-based content
+filter's context-insensitivity — a known and documented limitation, not
+something to "fix"). Test categories: functional (the HateCheck method,
+including contrast cases), robustness (ReDoS, log injection, resource
+consumption), validators (Luhn, IBAN, TCKN, math equivalence), the
+registry system, the audit trail.
 
 ```bash
 pytest tests/ -q
 ```
 
-## Sık kullanılan komutlar
+## Frequently used commands
 
 ```bash
 python -m rag.ingest --seed --reset
 python -m scripts.generate_llm_outputs
-python benchmark_engine.py                    # ana koşu
-python benchmark_engine.py --preset owasp_rank  # farklı ağırlık ön ayarı
-python -m core.audit verify                   # denetim izi bütünlüğü
-python -m core.versioning drift --model gpt4  # drift raporu
-streamlit run app.py                          # dashboard (3 sekme)
+python benchmark_engine.py                    # the main run
+python benchmark_engine.py --preset owasp_rank  # a different weight preset
+python -m core.audit verify                   # audit trail integrity
+python -m core.versioning drift --model gpt4  # drift report
+streamlit run app.py                          # dashboard (4 tabs)
 ```
 
-## `config/lexicons/` henüz gerçek veri içermiyor
+## `config/lexicons/` does not yet contain real data
 
-İçerik güvenliği sözlükleri (`profanity.txt`, `religious_insult.txt` vb.)
-mekanizma testi için birkaç örnek terimle dolu, gerçek kurumsal liste
-değil. `content_safety=100` gibi bir sonuç gördüğünde bunun "temiz" değil
-büyük ölçüde "henüz taranmadı" anlamına gelebileceğini unutma — sonuçta
-`inactive_categories` alanı hangi kategorinin boş olduğunu gösterir.
+The content-safety lexicons (`profanity.txt`, `religious_insult.txt`,
+etc.) are filled with a handful of sample terms for testing the
+mechanism, not a real organizational list. When you see a result like
+`content_safety=100`, remember it can largely mean "not yet scanned"
+rather than "clean" — the `inactive_categories` field in the result
+shows which category is empty.
 
-`religious_insult.txt` özellikle hassastır: dine yönelik eleştiri ile
-hakaret arasındaki sınır teknik bir karar değildir, kurum tanımlamalıdır.
-Bu dosyayı kendi inisiyatifinle doldurma.
+`religious_insult.txt` is especially sensitive: the line between
+criticism of religion and an insult is not a technical decision, the
+organization must define it. Don't fill this file in on your own
+initiative.
 
-## Belgeler (ayrıntı gerekince oku)
+## Documents (read when you need detail)
 
-- `README.md` — kurulum, kullanım, kurumsal olgunluk katmanı özeti
-- `docs/METHODOLOGY.md` — her parametrenin kaynak/madde referansı
-- `docs/DEFENSE.md` — her tasarım kararının problem/çözüm/kaynak eşlemesi
-- `docs/GOVERNANCE_ALIGNMENT.md` — NIST/ISO/EU AI Act eşlemesi ve neden bu sırayla
-- `docs/CALISMA_KAGIDI.md` — sunum için tek dosyalık özet
+- `README.md` — setup, usage, a summary of the enterprise-maturity layer
+- `docs/METHODOLOGY.md` — the source/clause reference for every parameter
+- `docs/DEFENSE.md` — the problem/solution/source mapping for every design decision
+- `docs/GOVERNANCE_ALIGNMENT.md` — the NIST/ISO/EU AI Act mapping and why in this order
+- `docs/WORKING_PAPER.md` — a single-file summary for presentations

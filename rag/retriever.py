@@ -1,19 +1,19 @@
-"""Track B — Retrieval katmanı ve retrieval kalite metrikleri.
+"""Track B — the retrieval layer and retrieval quality metrics.
 
-İki mod karşılaştırılabilir:
-    * ``dense``  : yalnızca embedding benzerliği
-    * ``hybrid`` : dense + BM25 lexical skorlarının ağırlıklı birleşimi
-      (``rag.hybrid_alpha``; 0 = saf lexical, 1 = saf dense)
+Two modes can be compared:
+    * ``dense``  : embedding similarity only
+    * ``hybrid`` : a weighted combination of dense + BM25 lexical scores
+      (``rag.hybrid_alpha``; 0 = pure lexical, 1 = pure dense)
 
-Ölçülen metrikler (altın kaynak etiketleri üzerinden):
-    * **Context precision** : getirilen chunk'ların kaçı gerçekten ilgili
-    * **Context recall**    : ilgili kaynakların kaçı getirilebildi
-    * **MRR**               : ilk ilgili sonucun sırasının tersinin ortalaması
-    * **Hit rate**          : en az bir ilgili sonuç getirilen sorgu oranı
+Metrics measured (against gold source labels):
+    * **Context precision** : what fraction of retrieved chunks are actually relevant
+    * **Context recall**    : what fraction of relevant sources were retrieved
+    * **MRR**               : the average of the reciprocal rank of the first relevant result
+    * **Hit rate**          : the fraction of queries with at least one relevant result retrieved
 
 CLI::
 
-    python -m rag.retriever --query "parola politikasi nedir"
+    python -m rag.retriever --query "what is the password policy"
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ logger = get_logger(__name__)
 
 @dataclass
 class RetrievalRecord:
-    """Tek bir sorgunun retrieval sonucu ve değerlendirme girdileri."""
+    """The retrieval result for a single query, plus evaluation inputs."""
 
     question: str
     hits: list[SearchHit] = field(default_factory=list)
@@ -52,17 +52,17 @@ class RetrievalRecord:
 
     @property
     def contexts(self) -> list[str]:
-        """Getirilen chunk metinleri."""
+        """The retrieved chunk texts."""
         return [hit.text for hit in self.hits]
 
     @property
     def sources(self) -> list[str]:
-        """Getirilen chunk'ların kaynak dosyaları."""
+        """The source files of the retrieved chunks."""
         return [hit.source for hit in self.hits]
 
 
 def _minmax(values: np.ndarray) -> np.ndarray:
-    """Skorları 0-1 aralığına ölçekler (birleştirme öncesi)."""
+    """Scales scores to the 0-1 range (before combining)."""
     if values.size == 0:
         return values
     low, high = float(values.min()), float(values.max())
@@ -72,7 +72,7 @@ def _minmax(values: np.ndarray) -> np.ndarray:
 
 
 class Retriever:
-    """Vektör deposu üzerinde dense veya hybrid arama yapar."""
+    """Runs dense or hybrid search over the vector store."""
 
     def __init__(
         self,
@@ -91,13 +91,13 @@ class Retriever:
 
     @property
     def documents(self) -> list[Document]:
-        """Depodaki tüm dokümanlar (lexical skorlama için cache'li)."""
+        """All documents in the store (cached for lexical scoring)."""
         if not self._documents:
             self._documents = self.store.all_documents()
         return self._documents
 
     def search(self, query: str, top_k: int | None = None) -> list[SearchHit]:
-        """Sorgu için en iyi ``top_k`` chunk'ı döndürür."""
+        """Returns the best ``top_k`` chunks for the query."""
         top_k = top_k or self.settings.rag.top_k
         dense_hits = self.store.query(query, top_k * 3 if self.mode == "hybrid" else top_k)
         if self.mode == "dense":
@@ -123,7 +123,7 @@ class Retriever:
                 score=round(score, 6), metadata=hit.metadata,
             )
 
-        # Dense sonuçlara girmemiş ama lexical olarak güçlü chunk'ları da ekle.
+        # Also include chunks that missed the dense results but score strongly lexically.
         for doc, score in sorted(
             zip(documents, lexical, strict=True), key=lambda pair: -pair[1]
         )[:top_k]:
@@ -139,7 +139,7 @@ class Retriever:
         self, questions: Sequence[str], expected: Sequence[Sequence[str]] | None = None,
         top_k: int | None = None,
     ) -> list[RetrievalRecord]:
-        """Birden çok sorgu için retrieval kayıtları üretir."""
+        """Produces retrieval records for multiple queries."""
         records: list[RetrievalRecord] = []
         for index, question in enumerate(questions):
             gold = list(expected[index]) if expected and index < len(expected) else []
@@ -152,10 +152,10 @@ class Retriever:
 
 
 # --------------------------------------------------------------------------- #
-# Retrieval metrikleri
+# Retrieval metrics
 # --------------------------------------------------------------------------- #
 def _is_relevant(hit_source: str, expected: Sequence[str]) -> bool:
-    """Bir chunk'ın altın kaynaklardan birine ait olup olmadığını söyler."""
+    """Says whether a chunk belongs to one of the gold sources."""
     normalized = hit_source.strip().lower()
     return any(normalized == item.strip().lower() for item in expected)
 
@@ -163,7 +163,7 @@ def _is_relevant(hit_source: str, expected: Sequence[str]) -> bool:
 def evaluate_retrieval(
     records: Sequence[RetrievalRecord], settings: Settings | None = None
 ) -> RetrievalResult:
-    """Retrieval kalite metriklerini ve 0-100 alt puanı hesaplar."""
+    """Computes retrieval quality metrics and a 0-100 sub-score."""
     settings = settings or get_settings()
     started = time.perf_counter()
 
@@ -171,7 +171,7 @@ def evaluate_retrieval(
     if not graded:
         return RetrievalResult(
             status=Status.SKIPPED,
-            message="altin kaynak etiketi olmayan veri seti",
+            message="dataset has no gold source labels",
             queries_evaluated=len(records),
         )
 
@@ -211,13 +211,13 @@ def evaluate_retrieval(
         mrr=round(mrr, 4),
         hit_rate=round(hit_rate, 4),
         queries_evaluated=len(graded),
-        message=f"{len(graded)} sorgu degerlendirildi",
+        message=f"{len(graded)} queries evaluated",
     )
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="RAG retriever denemesi")
-    parser.add_argument("--query", required=True, help="Aranacak soru")
+    parser = argparse.ArgumentParser(description="RAG retriever trial")
+    parser.add_argument("--query", required=True, help="The question to search for")
     parser.add_argument("--mode", default="hybrid", choices=["dense", "hybrid"])
     parser.add_argument("--top-k", type=int, default=None)
     args = parser.parse_args()

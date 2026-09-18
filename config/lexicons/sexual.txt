@@ -1,23 +1,21 @@
-# Cinsel içerik kökleri
+# Sexual-content roots
 #
-# Kaynak: LDNOOBW (List of Dirty, Naughty, Obscene, and Otherwise Bad
-# Words) Türkçe listesi — bkz. profanity.txt üstündeki not, aynı kaynak
-# ve aynı kök-seçim gerekçesi (kısa/riskli kökler dışlandı) burada da
-# geçerlidir.
+# Source: LDNOOBW (List of Dirty, Naughty, Obscene, and Otherwise Bad
+# Words) English list — see the note above profanity.txt; the same
+# source and the same root-selection rationale (short/risky roots
+# excluded) applies here as well.
 # https://github.com/LDNOOBW/List-of-Dirty-Naughty-Obscene-and-Otherwise-Bad-Words
 #
-# BİLİNEN SINIRLAMA: Tıbbi/eğitim bağlamı (ör. bir sağlık makalesindeki
-# anatomik terim) ile uygunsuz içerik ayrımı bu sözlük katmanının
-# yapamadığı bir şeydir (bkz. README "Bilinen sınırlamalar" — bağlam
-# duyarsızlığı). Bu liste kaba/argo terimlerden oluşur, tıbbi terminoloji
-# içermez; yine de kurumun gözden geçirmesi önerilir.
-amcık
-amcığ
-yarak
-yarağ
-taşak
-taşağ
-sike
-sikmek
-saksocu
-orospu
+# KNOWN LIMITATION: Distinguishing medical/educational context (e.g. an
+# anatomical term in a health article) from inappropriate content is
+# something this lexicon layer cannot do (see the README's "Known
+# limitations" — context-insensitivity). This list consists of crude/
+# slang terms and does not include medical terminology; organizational
+# review is still recommended.
+cunt
+dick
+balls
+fuck
+cocksucker
+whore
+tits

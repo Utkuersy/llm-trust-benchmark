@@ -1,14 +1,14 @@
-"""Tip-güvenli konfigürasyon katmanı.
+"""The type-safe configuration layer.
 
-``config/settings.yaml`` dosyası Pydantic modellerine yüklenir. Hiçbir
-modülde hardcoded yol/eşik/ağırlık bulunmaz.
+The ``config/settings.yaml`` file is loaded into Pydantic models. No
+module contains a hardcoded path/threshold/weight.
 
-Ortam değişkeni ile ezme (deployment / CI için)::
+Overriding via environment variable (for deployment / CI)::
 
     AITB__SANDBOX__TIMEOUT_SEC=30
     AITB__MLFLOW__TRACKING_URI=http://mlflow:5000
 
-Kullanım::
+Usage::
 
     from core.config import get_settings
     settings = get_settings()
@@ -50,7 +50,7 @@ class PathsConfig(_Base):
     poison_cache_dir: Path = Path(".cache_poison")
 
     def absolute(self, value: Path) -> Path:
-        """Göreli yolu proje köküne göre mutlaklaştırır."""
+        """Resolves a relative path against the project root."""
         return value if value.is_absolute() else (PROJECT_ROOT / value)
 
 
@@ -66,14 +66,15 @@ class LoggingConfig(_Base):
         allowed = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
         upper = value.upper()
         if upper not in allowed:
-            raise ValueError(f"Gecersiz log seviyesi: {value}")
+            raise ValueError(f"Invalid log level: {value}")
         return upper
 
 
 class ScoringConfig(_Base):
-    """Ağırlıklar doğrudan yazılmaz; core/scoring.py içindeki belgelenmiş
-    ön ayarlardan seçilir. Böylece her ağırlık bir kaynağa bağlı kalır.
-    Gerekirse ``*_weights_override`` ile ham oran verilebilir (normalize edilir).
+    """Weights are never written in directly; they are selected from the
+    documented presets in core/scoring.py. This way, every weight stays
+    traceable to a source. A raw ratio can be supplied via
+    ``*_weights_override`` if needed (it gets normalized).
     """
 
     track_a_preset: str = "iso_25010_equal"
@@ -83,7 +84,7 @@ class ScoringConfig(_Base):
 
     @property
     def track_a_weights(self) -> dict[str, float]:
-        """Track A için çözümlenmiş, normalize edilmiş ağırlıklar."""
+        """The resolved, normalized weights for Track A."""
         from core.scoring import normalize_weights, resolve_preset
 
         if self.track_a_weights_override:
@@ -92,7 +93,7 @@ class ScoringConfig(_Base):
 
     @property
     def track_b_weights(self) -> dict[str, float]:
-        """Track B için çözümlenmiş, normalize edilmiş ağırlıklar."""
+        """The resolved, normalized weights for Track B."""
         from core.scoring import normalize_weights, resolve_preset
 
         if self.track_b_weights_override:
@@ -105,24 +106,24 @@ class ScoringConfig(_Base):
 
         if not self.track_a_weights_override and self.track_a_preset not in TRACK_A_PRESETS:
             raise ValueError(
-                f"bilinmeyen track_a_preset: {self.track_a_preset} "
-                f"(secenekler: {sorted(TRACK_A_PRESETS)})"
+                f"unknown track_a_preset: {self.track_a_preset} "
+                f"(options: {sorted(TRACK_A_PRESETS)})"
             )
         if not self.track_b_weights_override and self.track_b_preset not in TRACK_B_PRESETS:
             raise ValueError(
-                f"bilinmeyen track_b_preset: {self.track_b_preset} "
-                f"(secenekler: {sorted(TRACK_B_PRESETS)})"
+                f"unknown track_b_preset: {self.track_b_preset} "
+                f"(options: {sorted(TRACK_B_PRESETS)})"
             )
         return self
 
 
 class ContentSafetyConfig(_Base):
-    """Zararlı içerik taraması ayarları."""
+    """Harmful content scanning settings."""
 
     enabled: bool = True
     lexicon_dir: Path = Path("config/lexicons")
     classifier_backend: str = "auto"       # auto | transformers | lexicon
-    classifier_model_path: str = ""        # yerel disk yolu; indirme yapılmaz
+    classifier_model_path: str = ""        # a local disk path; no download is performed
     classifier_threshold: float = 0.65
     context_words: int = 6
     category_severity: dict[str, str] = Field(
@@ -141,7 +142,7 @@ class ContentSafetyConfig(_Base):
 
 
 class MathEvalConfig(_Base):
-    """Matematik yetenek değerlendirmesi ayarları."""
+    """Math capability evaluation settings."""
 
     enabled: bool = True
     dataset_path: Path = Path("data/math_eval/problems.jsonl")
@@ -150,7 +151,7 @@ class MathEvalConfig(_Base):
 
 
 class OfflineConfig(_Base):
-    """İç ağ / hava kapalı ortam kısıtları."""
+    """Constraints for an internal-network / air-gapped environment."""
 
     enforce: bool = True
     env_flags: dict[str, str] = Field(
@@ -158,7 +159,7 @@ class OfflineConfig(_Base):
     )
 
     def apply(self) -> None:
-        """Ortam değişkenlerini süreç geneline uygular."""
+        """Applies the environment variables process-wide."""
         if not self.enforce:
             return
         for key, value in self.env_flags.items():
@@ -200,13 +201,13 @@ class LlmSecurityConfig(_Base):
 
 
 class DashboardConfig(_Base):
-    """Streamlit dashboard'u için erişim kontrolü.
+    """Access control for the Streamlit dashboard.
 
-    Rapor bulguları hassas olabileceğinden (bkz. README "Bilinen
-    sınırlamalar") varsayılan olarak şifre korumalıdır. Düz metin şifre
-    hiçbir yerde saklanmaz; yalnızca SHA-256 hash'i saklanır ve
-    ``AITB__DASHBOARD__PASSWORD_HASH`` ortam değişkeniyle verilir. Hash
-    üretmek için: ``python -m core.dashboard_auth``.
+    Since report findings can be sensitive (see the README's "Known
+    limitations"), password protection is on by default. The plaintext
+    password is never stored anywhere; only its SHA-256 hash is stored,
+    supplied via the ``AITB__DASHBOARD__PASSWORD_HASH`` environment
+    variable. To generate the hash: ``python -m core.dashboard_auth``.
     """
 
     auth_enabled: bool = True
@@ -214,7 +215,7 @@ class DashboardConfig(_Base):
 
 
 class Settings(_Base):
-    """Uygulamanın tüm konfigürasyonu."""
+    """The application's complete configuration."""
 
     project: ProjectConfig = Field(default_factory=ProjectConfig)
     paths: PathsConfig = Field(default_factory=PathsConfig)
@@ -231,7 +232,7 @@ class Settings(_Base):
 
     @property
     def root(self) -> Path:
-        """Proje kök dizini."""
+        """The project root directory."""
         return PROJECT_ROOT
 
 
@@ -247,7 +248,7 @@ def _set_nested(target: dict[str, Any], keys: list[str], value: Any) -> None:
 
 
 def _coerce(raw: str) -> Any:
-    """Ortam değişkeni string'ini uygun Python tipine çevirir."""
+    """Converts an environment-variable string into the appropriate Python type."""
     lowered = raw.strip().lower()
     if lowered in {"true", "false"}:
         return lowered == "true"
@@ -260,7 +261,7 @@ def _coerce(raw: str) -> Any:
 
 
 def _apply_env_overrides(data: dict[str, Any]) -> dict[str, Any]:
-    """AITB__ önekli ortam değişkenlerini konfigürasyona işler."""
+    """Applies AITB__-prefixed environment variables onto the configuration."""
     for env_key, env_value in os.environ.items():
         if not env_key.startswith(ENV_PREFIX):
             continue
@@ -272,7 +273,7 @@ def _apply_env_overrides(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def load_settings(config_path: Path | str | None = None) -> Settings:
-    """YAML + ortam değişkenlerinden ayarları yükler ve doğrular."""
+    """Loads and validates settings from YAML + environment variables."""
     path = Path(config_path) if config_path else DEFAULT_CONFIG_PATH
     data: dict[str, Any] = {}
     if path.exists():
@@ -285,12 +286,12 @@ def load_settings(config_path: Path | str | None = None) -> Settings:
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    """Süreç boyunca tek bir Settings örneği döndürür (cache'li)."""
+    """Returns a single Settings instance for the process's lifetime (cached)."""
     return load_settings(os.environ.get("AITB_CONFIG_PATH"))
 
 
 def reset_settings_cache() -> None:
-    """Testlerde konfigürasyonu yeniden yüklemek için cache'i temizler."""
+    """Clears the cache so tests can reload the configuration."""
     get_settings.cache_clear()
 
 

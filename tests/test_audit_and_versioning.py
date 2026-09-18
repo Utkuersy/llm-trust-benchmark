@@ -1,11 +1,11 @@
-"""Denetim izi (audit trail) ve test verisi versiyonlama testleri.
+"""Audit trail and test-data versioning tests.
 
-Denetim izinin varlık gerekçesi tek bir soruya cevap vermektir: "bu sonucu
-nasıl elde ettin, kanıtla." Testler bu iddiayı iki şekilde sınar:
-    1. Zincir gerçekten bozulunca ``verify_chain`` bunu yakalıyor mu
-       (aksi halde "değiştirilemez" iddiası boş bir sözdür).
-    2. Versiyonlama, veri değişikliği ile model değişikliğini gerçekten
-       ayırt edebiliyor mu.
+The audit trail exists to answer a single question: "how did you arrive
+at this result, prove it." The tests probe this claim in two ways:
+    1. When the chain is genuinely tampered with, does ``verify_chain``
+       catch it (otherwise the "immutable" claim is an empty promise)?
+    2. Can versioning actually distinguish a data change from a model
+       change?
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from core.versioning import dataset_components, dataset_version, drift_report
 
 @pytest.fixture(autouse=True)
 def _isolated_db(tmp_path, monkeypatch):
-    """Her testi ayrı bir SQLite dosyasında çalıştırır (testler birbirini etkilemesin)."""
+    """Runs each test against its own SQLite file (so tests don't affect each other)."""
     db_path = tmp_path / "audit_test.db"
     monkeypatch.setenv("AITB__PATHS__DB_PATH", str(db_path))
     from core.config import reset_settings_cache
@@ -30,17 +30,17 @@ def _isolated_db(tmp_path, monkeypatch):
 
 
 # --------------------------------------------------------------------------- #
-# Denetim izi — zincir doğruluğu
+# Audit trail — chain correctness
 # --------------------------------------------------------------------------- #
 def test_first_entry_chains_to_genesis() -> None:
-    """İlk kayıt, sıfır hash'e (genesis) zincirlenmeli."""
+    """The first record must chain to the zero hash (genesis)."""
     entry = record_run("R1", "preset-a")
     assert entry.previous_hash == GENESIS_HASH
     assert entry.sequence == 1
 
 
 def test_entries_chain_sequentially() -> None:
-    """Her yeni kayıt bir öncekinin hash'ine zincirlenmeli."""
+    """Each new record must chain to the previous one's hash."""
     first = record_run("R1", "preset-a")
     second = record_run("R2", "preset-a")
     third = record_run("R3", "preset-a")
@@ -50,15 +50,16 @@ def test_entries_chain_sequentially() -> None:
 
 
 def test_never_fabricates_code_version() -> None:
-    """Git bilgisi alınamazsa 'unknown' dönmeli, asla uydurulmuş bir hash değil."""
+    """If git info can't be obtained, must return 'unknown', never a fabricated hash."""
     entry = record_run("R1", "preset-a")
-    # Bu ortamda git deposu olabilir de olmayabilir de; tek garanti,
-    # dönen değerin ya gerçek bir git tanımlayıcısı ya da "unknown" olması.
+    # This environment may or may not have a git repository; the only
+    # guarantee is that the returned value is either a real git
+    # identifier or "unknown".
     assert entry.code_version == "unknown" or len(entry.code_version) >= 4
 
 
 def test_verify_chain_passes_on_untampered_log() -> None:
-    """Dokunulmamış bir zincir her zaman doğrulanmalı."""
+    """An untouched chain must always verify."""
     for i in range(5):
         record_run(f"R{i}", "preset-a")
     ok, problems = verify_chain()
@@ -67,19 +68,20 @@ def test_verify_chain_passes_on_untampered_log() -> None:
 
 
 def test_verify_chain_detects_content_tampering() -> None:
-    """Bir kaydın içeriği elle değiştirilirse tespit edilmeli.
+    """If a record's content is manually altered, it must be detected.
 
-    Bu, 'değiştirilemez' iddiasının gerçekten sınandığı testtir. Kayıt
-    doğrudan SQL ile değiştirilir (uygulama API'si bunu engellemez, çünkü
-    engellemek veritabanı erişimi olan biri için imkansızdır) ve doğrulama
-    fonksiyonunun bunu yakalaması beklenir.
+    This is the test that actually exercises the 'immutable' claim. The
+    record is modified directly via SQL (the application API does not
+    prevent this, because preventing it is impossible for anyone with
+    database access), and the verification function is expected to
+    catch it.
     """
     record_run("R1", "preset-a")
     record_run("R2", "preset-a")
 
     with connect() as connection:
         connection.execute(
-            "UPDATE audit_log SET triggered_by = 'saldirgan' WHERE run_id = 'R1'"
+            "UPDATE audit_log SET triggered_by = 'attacker' WHERE run_id = 'R1'"
         )
 
     ok, problems = verify_chain()
@@ -88,7 +90,7 @@ def test_verify_chain_detects_content_tampering() -> None:
 
 
 def test_verify_chain_detects_deleted_middle_entry() -> None:
-    """Zincirin ortasından bir kayıt silinirse sonraki kayıtların zinciri kopmalı."""
+    """Deleting a record from the middle of the chain must break the chain for subsequent records."""
     record_run("R1", "preset-a")
     record_run("R2", "preset-a")
     record_run("R3", "preset-a")
@@ -102,20 +104,20 @@ def test_verify_chain_detects_deleted_middle_entry() -> None:
 
 
 def test_verify_chain_empty_log_is_valid() -> None:
-    """Boş bir denetim izi geçerli sayılmalı (henüz koşu yapılmamış)."""
+    """An empty audit trail must be considered valid (no run has happened yet)."""
     ok, problems = verify_chain()
     assert ok is True
     assert problems == []
 
 
 def test_compute_hash_is_deterministic() -> None:
-    """Aynı içerik her zaman aynı hash'i üretmeli."""
+    """The same content must always produce the same hash."""
     payload = {"run_id": "X", "timestamp": "2026-01-01"}
     assert _compute_hash(GENESIS_HASH, payload) == _compute_hash(GENESIS_HASH, payload)
 
 
 def test_compute_hash_changes_with_previous_hash() -> None:
-    """Aynı içerik farklı önceki hash ile farklı sonuç üretmeli (zincirleme çalışıyor)."""
+    """The same content with a different previous hash must produce a different result (chaining works)."""
     payload = {"run_id": "X"}
     hash_a = _compute_hash(GENESIS_HASH, payload)
     hash_b = _compute_hash("f" * 64, payload)
@@ -123,7 +125,7 @@ def test_compute_hash_changes_with_previous_hash() -> None:
 
 
 def test_fetch_audit_log_filters_by_run_id() -> None:
-    """run_id filtresi yalnızca ilgili kayıtları döndürmeli."""
+    """The run_id filter must return only the matching records."""
     record_run("TARGET", "preset-a")
     record_run("OTHER", "preset-a")
 
@@ -133,7 +135,7 @@ def test_fetch_audit_log_filters_by_run_id() -> None:
 
 
 def test_audit_entry_records_who_and_when() -> None:
-    """Kim ve ne zaman bilgisi boş olmamalı."""
+    """The who and when fields must not be empty."""
     entry = record_run("R1", "preset-a")
     assert entry.triggered_by
     assert entry.hostname
@@ -141,15 +143,15 @@ def test_audit_entry_records_who_and_when() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# Versiyonlama
+# Versioning
 # --------------------------------------------------------------------------- #
 def test_dataset_version_is_deterministic() -> None:
-    """Aynı test verisi her seferinde aynı sürüm dizgesini üretmeli."""
+    """The same test data must produce the same version string every time."""
     assert dataset_version() == dataset_version()
 
 
 def test_dataset_components_lists_all_pieces() -> None:
-    """Tüm bileşenler ayrı ayrı raporlanmalı (hangi parça değişti sorusu için)."""
+    """All components must be reported separately (for "which piece changed" questions)."""
     components = dataset_components()
     expected = {
         "rag_corpus", "content_lexicons", "math_problems",
@@ -159,7 +161,7 @@ def test_dataset_components_lists_all_pieces() -> None:
 
 
 def test_dataset_version_changes_when_scenario_count_differs() -> None:
-    """Farklı bir senaryo kümesi farklı bir hash üretmeli."""
+    """A different scenario set must produce a different hash."""
     from core.versioning import _hash_module_constant
     from llm_security.prompt_injection_tests import InjectionScenario
 
@@ -180,10 +182,10 @@ def test_dataset_version_changes_when_scenario_count_differs() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# Drift raporu
+# Drift report
 # --------------------------------------------------------------------------- #
 def _insert_run(model: str, score: float, preset: str, created_at: str) -> None:
-    """Test için doğrudan track_b_results tablosuna minimal bir satır ekler."""
+    """Inserts a minimal row directly into the track_b_results table for testing."""
     from core.schemas import EvaluationResult
     from core.storage import init_db, save_track_b
 
@@ -195,14 +197,14 @@ def _insert_run(model: str, score: float, preset: str, created_at: str) -> None:
 
 
 def test_drift_report_requires_at_least_two_runs() -> None:
-    """Tek koşuyla drift raporu üretilmemeli."""
+    """A drift report must not be produced from a single run."""
     _insert_run("gpt4", 80.0, "preset-a", "2026-01-01T00:00:00+00:00")
     report = drift_report("gpt4")
     assert report["comparable_pairs"] == 0
 
 
 def test_drift_report_flags_config_change_not_model() -> None:
-    """Ağırlık ön ayarı değiştiyse fark modele değil konfigürasyona atfedilmeli."""
+    """If the weight preset changed, the difference must be attributed to configuration, not the model."""
     _insert_run("gpt4", 80.0, "preset-a", "2026-01-01T00:00:00+00:00")
     _insert_run("gpt4", 40.0, "preset-b", "2026-02-01T00:00:00+00:00")
 
@@ -212,7 +214,7 @@ def test_drift_report_flags_config_change_not_model() -> None:
 
 
 def test_drift_report_flags_real_drift_when_config_stable() -> None:
-    """Konfigürasyon aynıyken büyük puan farkı gerçek drift sayılmalı."""
+    """A large score gap with an unchanged configuration must count as real drift."""
     _insert_run("gpt4", 85.0, "preset-a", "2026-01-01T00:00:00+00:00")
     _insert_run("gpt4", 60.0, "preset-a", "2026-02-01T00:00:00+00:00")
 
@@ -222,7 +224,7 @@ def test_drift_report_flags_real_drift_when_config_stable() -> None:
 
 
 def test_drift_report_ignores_small_fluctuation() -> None:
-    """Eşiğin altındaki küçük dalgalanmalar drift sayılmamalı."""
+    """Small fluctuations below the threshold must not count as drift."""
     _insert_run("gpt4", 85.0, "preset-a", "2026-01-01T00:00:00+00:00")
     _insert_run("gpt4", 83.0, "preset-a", "2026-02-01T00:00:00+00:00")
 

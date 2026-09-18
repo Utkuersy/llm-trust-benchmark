@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "ai-trust-benchmark"
 version = "2.0.0"
-description = "AI Trustworthiness Benchmark Platform — kod ve LLM/RAG güvenilirlik ölçümü"
+description = "AI Trustworthiness Benchmark Platform — code and LLM/RAG reliability measurement"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
 
@@ -23,9 +23,9 @@ exclude = ["mlruns", "results", "db", ".venv"]
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "ARG", "PTH", "RUF"]
 ignore = [
-    "E501",   # satır uzunluğu formatter tarafından yönetiliyor
-    "B008",   # FastAPI/Pydantic tarzı varsayılanlar
-    "RUF001", # Türkçe karakterler "belirsiz unicode" olarak işaretleniyor
+    "E501",   # line length is managed by the formatter
+    "B008",   # FastAPI/Pydantic-style defaults
+    "RUF001", # em-dashes and other confusable Unicode in docstrings get flagged as "ambiguous"
     "RUF002",
     "RUF003",
 ]
@@ -54,17 +54,17 @@ ignore_missing_imports = true
 # pytest
 # --------------------------------------------------------------------------- #
 [tool.pytest.ini_options]
-# Proje kokunde bir paket kurulumu (pip install -e .) olmadan core/,
-# capability/, llm_security/ gibi kok-seviyesi paketlerin import edilebilmesi
-# icin gerekli. "python -m pytest" CWD'yi otomatik ekler ama duz "pytest"
-# komutu (CI'nin kullandigi) eklemez; bu ayar cagirma seklinden bagimsiz
-# calisir.
+# Needed so root-level packages like core/, capability/, llm_security/ can
+# be imported without a package install (pip install -e .) at the project
+# root. "python -m pytest" adds the CWD automatically, but the bare "pytest"
+# command (which CI uses) does not; this setting works regardless of how
+# it's invoked.
 pythonpath = ["."]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "-ra --strict-markers"
 markers = [
-    "slow: uzun süren testler",
+    "slow: long-running tests",
 ]
 
 # --------------------------------------------------------------------------- #

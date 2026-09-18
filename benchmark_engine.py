@@ -1,25 +1,28 @@
-"""LLM çıktı güvenilirliği değerlendirme motoru.
+"""The LLM output reliability evaluation engine.
 
-``llm_outputs/<model>/`` altındaki her model için yedi boyut ölçülür ve
-ağırlıklı bir Trust Score (0-100) hesaplanır:
+Seven dimensions are measured for every model under
+``llm_outputs/<model>/``, and a weighted Trust Score (0-100) is computed:
 
     Safety      (ISO 25010)  -> content_safety
     Security    (OWASP LLM)  -> injection, pii, poisoning
     Functional  (ISO 25010)  -> retrieval, generation, math
 
-Ağırlıklar elle yazılmaz; ``core/scoring.py`` içindeki, her biri bir
-kaynağa bağlanmış ön ayarlardan seçilir. Kullanılan ön ayarın adı ve
-puanlama şeması sürümü her sonuç kaydına yazılır (izlenebilirlik).
+Weights are never hand-written; they are selected from the presets in
+``core/scoring.py``, each traceable to a source. The preset name used
+and the scoring scheme version are written into every result record
+(for traceability).
 
-**Pipeline izleme.** Her soru kaydı için bir ``PipelineTrace`` üretilir:
-girdi guardrail'i, retrieval, üretim ve çıktı guardrail'i ayrı aşamalar
-olarak ölçülür. Böylece "cevap kötü" demek yerine *hangi aşamada* bozulduğu
-söylenebilir — girdide yakalanan bir injection ile modelin kendi ürettiği
-bir ihlal farklı risklerdir ve farklı aksiyon gerektirir.
+**Pipeline tracing.** A ``PipelineTrace`` is produced for every question
+record: the input guardrail, retrieval, generation, and output guardrail
+are measured as separate stages. This lets us say *at which stage*
+things broke down, instead of just "the answer was bad" — an injection
+caught on input and a violation the model itself produced are different
+risks requiring different actions.
 
-**Atlanan boyut cezalandırılmaz.** Bir analiz adımı çalışamazsa (sözlük
-boş, matematik cevap dosyası yok) o boyutun ağırlığı paydadan düşülür ve
-kalan boyutlara orantılı dağıtılır.
+**A skipped dimension is not penalized.** If an analysis step can't run
+(an empty lexicon, no math answer file), that dimension's weight is
+removed from the denominator and distributed proportionally across the
+remaining dimensions.
 
 CLI::
 
@@ -68,10 +71,10 @@ DIMENSIONS = tuple(dimension.key for dimension in all_dimensions())
 
 
 # --------------------------------------------------------------------------- #
-# Kayıtlardan retrieval değerlendirme formatı
+# Converting records into the retrieval evaluation format
 # --------------------------------------------------------------------------- #
 def _infer_source(context: str, expected: Sequence[str]) -> str:
-    """Bağlam metninden kaynak dosya adını tahmin eder (başlık eşleşmesi)."""
+    """Guesses the source file name from context text (title matching)."""
     head = context.strip().splitlines()[0].lower() if context.strip() else ""
     for candidate in expected:
         stem = Path(candidate).stem.replace("_", " ").lower()
@@ -81,7 +84,7 @@ def _infer_source(context: str, expected: Sequence[str]) -> str:
 
 
 def records_to_retrieval(records: Sequence[dict[str, Any]]) -> list[RetrievalRecord]:
-    """Kayıtlı cevapları retrieval değerlendirme formatına çevirir."""
+    """Converts recorded answers into the retrieval evaluation format."""
     output: list[RetrievalRecord] = []
     for record in records:
         expected = list(record.get("expected_sources", []))
@@ -111,22 +114,22 @@ def records_to_retrieval(records: Sequence[dict[str, Any]]) -> list[RetrievalRec
 
 
 # --------------------------------------------------------------------------- #
-# Pipeline izleme
+# Pipeline tracing
 # --------------------------------------------------------------------------- #
 def build_traces(
     records: Sequence[dict[str, Any]], model_name: str, settings: Settings
 ) -> list[PipelineTrace]:
-    """Her soru kaydı için aşama bazlı pipeline izi üretir.
+    """Produces a stage-by-stage pipeline trace for every question record.
 
-    Kayıtlı çıktılar üzerinden çalışıldığı için aşamalar yeniden
-    *çalıştırılmaz*; gözlemlenebilir olanlar ölçülür:
+    Since this runs over recorded outputs, stages are not *re-executed*;
+    what's observable is measured:
 
-        input_guardrail   — sorudaki zararlı içerik / PII izleri
-        retrieval         — bağlam getirildi mi, kaç parça
-        generation        — cevap üretildi mi, uzunluğu
-        output_guardrail  — cevaptaki içerik ihlali ve PII sızıntısı
+        input_guardrail   — harmful content / PII traces in the question
+        retrieval         — was context retrieved, how many chunks
+        generation        — was an answer produced, its length
+        output_guardrail  — content violations and PII leakage in the answer
 
-    Bu ayrım, riskin kullanıcıdan mı yoksa modelden mi geldiğini gösterir.
+    This distinction shows whether a risk came from the user or from the model.
     """
     lexicon_dir = settings.content_safety.lexicon_dir
     if not lexicon_dir.is_absolute():
@@ -161,12 +164,12 @@ def build_traces(
         with trace.stage("retrieval") as stage:
             stage.set_output(contexts, retrieved=len(contexts))
             if not contexts:
-                stage.mark_skipped("kayitta baglam yok")
+                stage.mark_skipped("no context in the record")
 
         with trace.stage("generation") as stage:
             stage.set_output(answer, answer_chars=len(answer))
             if not answer.strip():
-                stage.mark_skipped("bos cevap")
+                stage.mark_skipped("empty answer")
 
         with trace.stage("output_guardrail") as stage:
             stage.add_findings(
@@ -179,12 +182,12 @@ def build_traces(
 
 
 # --------------------------------------------------------------------------- #
-# Puanlama
+# Scoring
 # --------------------------------------------------------------------------- #
 def compute_trust_score(
     result: EvaluationResult, _settings: Settings, preset: str
 ) -> tuple[float, dict[str, float], dict[str, float]]:
-    """Ağırlıklı Trust Score, alt puanlar ve kullanılan ağırlıkları döndürür."""
+    """Returns the weighted Trust Score, sub-scores, and the weights used."""
     weights = resolve_preset("B", preset)
     components = {name: getattr(result, name) for name in DIMENSIONS}
 
@@ -196,7 +199,7 @@ def compute_trust_score(
     missing = [name for name in usable if name not in weights]
     if missing:
         logger.warning(
-            "on ayarda agirligi tanimsiz boyut var; puana katkisi olmayacak",
+            "preset has a dimension with no defined weight; it will not contribute to the score",
             extra={"preset": preset, "dimensions": missing},
         )
 
@@ -205,7 +208,7 @@ def compute_trust_score(
 
 
 def collect_findings(result: EvaluationResult) -> list[dict[str, Any]]:
-    """Alt sonuçlardan ortak bulgu kayıtları üretir."""
+    """Produces common finding records from the sub-results."""
     findings: list[dict[str, Any]] = []
 
     for example in result.content_safety.examples:
@@ -213,7 +216,7 @@ def collect_findings(result: EvaluationResult) -> list[dict[str, Any]]:
             {
                 "category": "content_safety",
                 "severity": example.get("severity", "HIGH"),
-                "title": f"Zararli icerik: {example.get('category')}",
+                "title": f"Harmful content: {example.get('category')}",
                 "detail": f"{example.get('matched_root', '')} — {example.get('context', '')[:200]}",
                 "location": example.get("question", ""),
             }
@@ -233,7 +236,7 @@ def collect_findings(result: EvaluationResult) -> list[dict[str, Any]]:
             {
                 "category": "pii_leakage",
                 "severity": example.get("severity", "MEDIUM"),
-                "title": f"PII sizintisi: {example.get('type')}",
+                "title": f"PII leak: {example.get('type')}",
                 "detail": f"{example.get('masked_value')} — {example.get('context', '')[:200]}",
                 "location": example.get("question", ""),
             }
@@ -244,7 +247,7 @@ def collect_findings(result: EvaluationResult) -> list[dict[str, Any]]:
                 {
                     "category": "data_poisoning",
                     "severity": "HIGH",
-                    "title": f"Zehirli iddia benimsendi: {example.get('case_id')}",
+                    "title": f"Poisoned claim adopted: {example.get('case_id')}",
                     "detail": str(example.get("matched_claims")),
                     "location": example.get("query", ""),
                 }
@@ -255,7 +258,7 @@ def collect_findings(result: EvaluationResult) -> list[dict[str, Any]]:
                 {
                     "category": "hallucination",
                     "severity": "MEDIUM",
-                    "title": "Dusuk faithfulness",
+                    "title": "Low faithfulness",
                     "detail": example.get("answer", "")[:300],
                     "location": example.get("question", ""),
                 }
@@ -265,8 +268,8 @@ def collect_findings(result: EvaluationResult) -> list[dict[str, Any]]:
             {
                 "category": "math_error",
                 "severity": "LOW" if failure.get("method") == "extraction_failed" else "MEDIUM",
-                "title": f"Matematik hatasi: {failure.get('id')}",
-                "detail": f"beklenen={failure.get('expected')} bulunan={failure.get('extracted')}",
+                "title": f"Math error: {failure.get('id')}",
+                "detail": f"expected={failure.get('expected')} found={failure.get('extracted')}",
                 "location": failure.get("category", ""),
             }
         )
@@ -277,8 +280,8 @@ def collect_findings(result: EvaluationResult) -> list[dict[str, Any]]:
                 {
                     "category": "pipeline",
                     "severity": "INFO",
-                    "title": f"Asama bazli bulgu: {stage}",
-                    "detail": f"{count} bulgu bu asamada tetiklendi",
+                    "title": f"Stage-level finding: {stage}",
+                    "detail": f"{count} findings triggered at this stage",
                     "location": stage,
                 }
             )
@@ -286,10 +289,10 @@ def collect_findings(result: EvaluationResult) -> list[dict[str, Any]]:
 
 
 # --------------------------------------------------------------------------- #
-# Orkestrasyon
+# Orchestration
 # --------------------------------------------------------------------------- #
 def discover_models(settings: Settings) -> list[Path]:
-    """``llm_outputs/`` altındaki model klasörlerini bulur."""
+    """Finds the model folders under ``llm_outputs/``."""
     root = settings.paths.absolute(settings.paths.llm_outputs_dir)
     if not root.exists():
         return []
@@ -310,16 +313,16 @@ def benchmark_model(
     skip_poisoning: bool = False,
     with_trace: bool = True,
 ) -> EvaluationResult:
-    """Tek bir model için yedi boyutu ölçer."""
+    """Measures the seven dimensions for a single model."""
     model_name = model_dir.name
     run_id = f"E-{model_name}-{uuid.uuid4().hex[:10]}"
-    logger.info("degerlendirme basladi", extra={"model": model_name, "run_id": run_id})
+    logger.info("evaluation started", extra={"model": model_name, "run_id": run_id})
 
     result = EvaluationResult(run_id=run_id, model_name=model_name, config_name=preset)
     records = rag_evaluator.load_llm_outputs(model_dir)
 
     if not records:
-        result.retrieval = RetrievalResult(status=Status.ERROR, message="cevap dosyasi yok")
+        result.retrieval = RetrievalResult(status=Status.ERROR, message="no answer file")
         result.trust_score, result.subscores, result.weights = compute_trust_score(
             result, settings, preset
         )
@@ -338,14 +341,14 @@ def benchmark_model(
         if not dimension.enabled_check(settings):
             setattr(
                 result, dimension.key,
-                type(getattr(result, dimension.key))(status=Status.SKIPPED, message="devre disi"),
+                type(getattr(result, dimension.key))(status=Status.SKIPPED, message="disabled"),
             )
             continue
         try:
             setattr(result, dimension.key, dimension.evaluator(context))
         except Exception as exc:
             logger.exception(
-                "boyut degerlendirmesi basarisiz",
+                "dimension evaluation failed",
                 extra={"dimension": dimension.key, "model": model_name, "error": str(exc)},
             )
             error_type = type(getattr(result, dimension.key))
@@ -363,7 +366,7 @@ def benchmark_model(
     result.weight_preset = preset
 
     logger.info(
-        "degerlendirme tamamlandi",
+        "evaluation completed",
         extra={
             "model": model_name,
             "trust_score": result.trust_score,
@@ -375,7 +378,7 @@ def benchmark_model(
 
 
 def persist(result: EvaluationResult, tracker: ExperimentTracker, settings: Settings) -> None:
-    """Sonucu MLflow'a loglar, SQLite'a, results/ altına yazar ve denetim izine kaydeder."""
+    """Logs the result to MLflow, writes it to SQLite and under results/, and records it in the audit trail."""
     from core.audit import record_run
     from core.versioning import dataset_version
 
@@ -445,7 +448,7 @@ def run_benchmark(
     with_trace: bool = True,
     settings: Settings | None = None,
 ) -> list[EvaluationResult]:
-    """Değerlendirmeyi seçili (veya tüm) modeller için çalıştırır."""
+    """Runs the evaluation for the selected (or all) models."""
     settings = settings or get_settings()
     settings.offline.apply()
     init_db(settings)
@@ -458,8 +461,8 @@ def run_benchmark(
         directories = [d for d in directories if d.name.lower() in wanted]
     if not directories:
         logger.error(
-            "llm_outputs altinda model bulunamadi; once "
-            "python -m scripts.generate_llm_outputs calistirin"
+            "no model found under llm_outputs; run "
+            "python -m scripts.generate_llm_outputs first"
         )
         return []
 
@@ -477,19 +480,19 @@ def run_benchmark(
             results.append(result)
         except Exception as exc:
             logger.exception(
-                "model degerlendirmesi basarisiz",
+                "model evaluation failed",
                 extra={"model": model_dir.name, "error": str(exc)},
             )
     return results
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="LLM cikti guvenilirligi degerlendirmesi")
+    parser = argparse.ArgumentParser(description="LLM output reliability evaluation")
     parser.add_argument("--models", nargs="*", default=None)
-    parser.add_argument("--preset", default=None, help="Agirlik on ayari (core/scoring.py)")
+    parser.add_argument("--preset", default=None, help="Weight preset (core/scoring.py)")
     parser.add_argument("--skip-poisoning", action="store_true")
-    parser.add_argument("--no-trace", action="store_true", help="Pipeline izlemeyi kapat")
-    parser.add_argument("--config", default=None, help="Alternatif settings.yaml yolu")
+    parser.add_argument("--no-trace", action="store_true", help="Turn off pipeline tracing")
+    parser.add_argument("--config", default=None, help="Alternative settings.yaml path")
     args = parser.parse_args()
 
     if args.config:
@@ -505,12 +508,12 @@ def main() -> None:
         return
 
     preset = results[0].weight_preset
-    print(f"\n=== Trust Score ozeti (on ayar: {preset}, v{SCORING_VERSION}) ===")
+    print(f"\n=== Trust Score summary (preset: {preset}, v{SCORING_VERSION}) ===")
     for result in sorted(results, key=lambda r: r.trust_score, reverse=True):
         parts = " ".join(f"{k}={v:.0f}" for k, v in result.subscores.items())
         print(f"{result.model_name:<10} {result.trust_score:6.2f}   {parts}")
 
-    print("\n=== Pipeline: asama bazli bulgu ===")
+    print("\n=== Pipeline: stage-level findings ===")
     for result in results:
         stages = result.pipeline.get("stage_findings", {})
         if stages:

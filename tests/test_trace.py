@@ -1,11 +1,12 @@
-"""Pipeline izleme katmanı testleri.
+"""Pipeline trace layer tests.
 
-Trace katmanı, sonuçların *nerede* bozulduğunu söylemekle yükümlüdür.
-Bu yüzden testler üç şeyi garanti eder:
+The trace layer is responsible for saying *where* results broke down.
+Tests therefore guarantee three things:
 
-1. Aşama sırası, süresi ve durumu doğru kaydedilir
-2. Hata yutulmaz — kaydedilir ve yeniden yükseltilir
-3. Ham içerik ve kontrol karakteri trace'e sızmaz (CWE-117 ve veri sızıntısı)
+1. Stage order, duration, and status are recorded correctly
+2. Errors are not swallowed — they are recorded and re-raised
+3. Raw content and control characters do not leak into the trace (CWE-117
+   and data leakage)
 """
 
 from __future__ import annotations
@@ -18,7 +19,7 @@ from core.trace import PipelineTrace, aggregate, summarize
 
 
 def test_stages_recorded_in_order() -> None:
-    """Aşamalar çağrıldıkları sırayla kaydedilmeli."""
+    """Stages must be recorded in the order they were called."""
     trace = PipelineTrace(pipeline="rag", model_name="test")
     for name in ("retrieval", "prompt", "generation", "output_guardrail"):
         with trace.stage(name):
@@ -33,44 +34,45 @@ def test_stages_recorded_in_order() -> None:
 
 
 def test_durations_are_measured() -> None:
-    """Aşama süresi ölçülmeli ve toplam süreye yansımalı."""
+    """Stage duration must be measured and reflected in the total duration."""
     trace = PipelineTrace(pipeline="rag")
-    with trace.stage("yavas"):
+    with trace.stage("slow"):
         time.sleep(0.05)
-    with trace.stage("hizli"):
+    with trace.stage("fast"):
         pass
     trace.finish()
 
     durations = trace.stage_durations()
-    assert durations["yavas"] >= 0.04
-    assert durations["yavas"] > durations["hizli"]
-    assert trace.slowest_stage() == "yavas"
-    assert trace.total_duration_sec >= durations["yavas"]
+    assert durations["slow"] >= 0.04
+    assert durations["slow"] > durations["fast"]
+    assert trace.slowest_stage() == "slow"
+    assert trace.total_duration_sec >= durations["slow"]
 
 
 def test_error_is_recorded_and_reraised() -> None:
-    """Hata kaydedilmeli ama yutulmamalı.
+    """An error must be recorded but not swallowed.
 
-    Trace bir hata yönetim katmanı değildir; yalnızca gözlemler. İstisnayı
-    yutmak, kırık pipeline'ın sessizce başarılı görünmesine yol açardı.
+    Trace is not an error-handling layer; it only observes. Swallowing
+    the exception would let a broken pipeline appear silently successful.
     """
     trace = PipelineTrace(pipeline="rag")
-    with pytest.raises(ValueError, match="retrieval coktu"), trace.stage("retrieval"):
-        raise ValueError("retrieval coktu")
+    with pytest.raises(ValueError, match="retrieval blew up"), trace.stage("retrieval"):
+        raise ValueError("retrieval blew up")
     trace.finish()
 
     stage = trace.stages[0]
     assert stage.status == "error"
     assert stage.error_type == "ValueError"
-    assert "retrieval coktu" in stage.error_message
+    assert "retrieval blew up" in stage.error_message
     assert trace.failed_stages == ["retrieval"]
 
 
 def test_findings_are_attributed_to_stage() -> None:
-    """Bulgular hangi aşamada tetiklendiyse oraya yazılmalı.
+    """Findings must be written to the stage where they were triggered.
 
-    Girdide yakalanan bir injection ile çıktıda yakalanan bir ihlal farklı
-    risklerdir; ayrım kaybolursa kök neden analizi yapılamaz.
+    An injection caught on input and a violation caught on output are
+    different risks; if the distinction is lost, root-cause analysis
+    becomes impossible.
     """
     trace = PipelineTrace(pipeline="rag")
     with trace.stage("input_guardrail") as stage:
@@ -89,10 +91,10 @@ def test_findings_are_attributed_to_stage() -> None:
 
 
 def test_skipped_stage_is_not_an_error() -> None:
-    """Atlanan aşama hata sayılmamalı."""
+    """A skipped stage must not count as an error."""
     trace = PipelineTrace(pipeline="rag")
     with trace.stage("reranking") as stage:
-        stage.mark_skipped("reranker yapilandirilmamis")
+        stage.mark_skipped("reranker not configured")
     trace.finish()
 
     assert trace.stages[0].status == "skipped"
@@ -100,11 +102,11 @@ def test_skipped_stage_is_not_an_error() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# Veri sızıntısı ve kontrol karakteri
+# Data leakage and control characters
 # --------------------------------------------------------------------------- #
 def test_summary_does_not_store_raw_content() -> None:
-    """Özet, ham içeriğin tamamını taşımamalı."""
-    secret = "gizli belge icerigi " * 100
+    """The summary must not carry the full raw content."""
+    secret = "secret document contents " * 100
     summary = summarize(secret)
 
     assert summary["length"] == len(secret)
@@ -114,8 +116,8 @@ def test_summary_does_not_store_raw_content() -> None:
 
 
 def test_summary_strips_control_characters() -> None:
-    """Önizleme satır sonu içermemeli (CWE-117)."""
-    payload = "normal\nsatir\r\nSAHTE LOG: yetki verildi\ttab"
+    """The preview must not contain line breaks (CWE-117)."""
+    payload = "normal\nline\r\nFAKE LOG: access granted\ttab"
     summary = summarize(payload)
     assert "\n" not in summary["preview"]
     assert "\r" not in summary["preview"]
@@ -123,41 +125,41 @@ def test_summary_strips_control_characters() -> None:
 
 
 def test_redactor_is_applied_to_preview() -> None:
-    """Enjekte edilen redaksiyon işlevi önizlemeye uygulanmalı."""
-    trace = PipelineTrace(pipeline="rag", redactor=lambda text: text.replace("gizli", "***"))
+    """An injected redaction function must be applied to the preview."""
+    trace = PipelineTrace(pipeline="rag", redactor=lambda text: text.replace("secret", "***"))
     with trace.stage("generation") as stage:
-        stage.set_output("bu gizli bir cevaptir")
+        stage.set_output("this is a secret answer")
     trace.finish()
 
-    assert "gizli" not in trace.stages[0].output_summary["preview"]
+    assert "secret" not in trace.stages[0].output_summary["preview"]
     assert "***" in trace.stages[0].output_summary["preview"]
 
 
 def test_failing_redactor_does_not_break_trace() -> None:
-    """Redaksiyon işlevi çökerse trace çalışmaya devam etmeli."""
+    """If the redaction function crashes, the trace must keep working."""
     def broken(_: str) -> str:
-        raise RuntimeError("redaksiyon hatasi")
+        raise RuntimeError("redaction error")
 
     trace = PipelineTrace(pipeline="rag", redactor=broken)
     with trace.stage("generation") as stage:
-        stage.set_output("herhangi bir cevap")
+        stage.set_output("some answer")
     trace.finish()
 
     assert trace.stages[0].status == "ok"
-    assert "redaksiyon" in trace.stages[0].output_summary["preview"]
+    assert "redaction" in trace.stages[0].output_summary["preview"]
 
 
 def test_same_input_produces_same_hash() -> None:
-    """Aynı girdi aynı hash'i üretmeli (koşular arası karşılaştırma)."""
-    assert summarize("aynı metin")["sha256_12"] == summarize("aynı metin")["sha256_12"]
-    assert summarize("metin a")["sha256_12"] != summarize("metin b")["sha256_12"]
+    """The same input must produce the same hash (for cross-run comparison)."""
+    assert summarize("same text")["sha256_12"] == summarize("same text")["sha256_12"]
+    assert summarize("text a")["sha256_12"] != summarize("text b")["sha256_12"]
 
 
 # --------------------------------------------------------------------------- #
-# Toplu görünüm
+# Aggregate view
 # --------------------------------------------------------------------------- #
 def test_aggregate_computes_error_rate_and_bottleneck() -> None:
-    """Toplu özet, sistematik hata ve darboğaz göstermeli."""
+    """The aggregate summary must show systematic errors and the bottleneck."""
     traces = []
     for index in range(4):
         trace = PipelineTrace(pipeline="rag")
@@ -165,7 +167,7 @@ def test_aggregate_computes_error_rate_and_bottleneck() -> None:
             time.sleep(0.02)
         if index < 2:
             with pytest.raises(RuntimeError), trace.stage("generation"):
-                raise RuntimeError("model hatasi")
+                raise RuntimeError("model error")
         else:
             with trace.stage("generation"):
                 pass
@@ -179,19 +181,19 @@ def test_aggregate_computes_error_rate_and_bottleneck() -> None:
 
 
 def test_aggregate_handles_empty_input() -> None:
-    """İzleme yoksa toplu özet çökmemeli."""
+    """The aggregate summary must not crash when there are no traces."""
     summary = aggregate([])
     assert summary["traces"] == 0
     assert summary["bottleneck"] == ""
 
 
 def test_trace_serializes_to_dict() -> None:
-    """Tam gösterim JSON'a yazılabilir olmalı (SQLite payload'u için)."""
+    """The full representation must be JSON-serializable (for the SQLite payload)."""
     import json
 
     trace = PipelineTrace(pipeline="rag", model_name="test", query_id="Q-1")
     with trace.stage("retrieval") as stage:
-        stage.set_input("soru metni", top_k=4)
+        stage.set_input("question text", top_k=4)
         stage.set_output(["chunk1", "chunk2"], retrieved=2)
     trace.finish()
 

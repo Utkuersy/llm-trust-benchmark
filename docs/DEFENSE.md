@@ -1,376 +1,402 @@
-# Savunma notları — her kararın dayanağı
+# Defense notes — the basis for every decision
 
-Bu belge tek bir soruya cevap verir: **"Bunu neden böyle yaptın?"**
+This document answers a single question: **"Why did you do it this way?"**
 
-Her satır bir problem, ona verilen çözüm ve çözümün dayandığı kaynağı içerir.
-Sunumda bu belgeyi açık tutabilir, sorulan her karara buradan cevap
-verebilirsin.
+Every line contains a problem, the solution applied to it, and the
+source that solution rests on. You can keep this document open during a
+presentation and answer any question about a decision from here.
 
 ---
 
-## 0. Projenin konumu: LLM-Stats ne yapar, bu platform ne yapar
+## 0. Where this project sits: what LLM-Stats does, what this platform does
 
-Görevlinin gösterdiği [llm-stats.com/benchmarks](https://llm-stats.com/benchmarks),
-680 benchmark ve 55 yetenek alanı üzerinden model sıralamaları üreten bir
-**benchmark toplayıcısıdır**. Her yetenek kategorisindeki benchmark sonuçları
-TrueSkill muhafazakâr derecelendirmesiyle birleştirilip tek bir indeks
-hâline getirilir.
+[llm-stats.com/benchmarks](https://llm-stats.com/benchmarks), which the
+supervisor pointed to, is a **benchmark aggregator** that produces model
+rankings across 680 benchmarks and 55 capability areas. Benchmark
+results within each capability category are combined into a single
+index using a conservative TrueSkill rating.
 
-LLM-Stats'in kendi metodoloji notu, bu platformun varlık gerekçesini
-doğrudan ifade eder: sıralamalar prompt formatı, harness sürümü,
-kontaminasyon, eksik koşular ve model güncellemeleriyle değişebilir; bu
-nedenle **tek bir evrensel skor yerine birden çok ilgili test**
-kullanılmalıdır.
+LLM-Stats's own methodology note directly states this platform's reason
+for existing: rankings can shift with prompt format, harness version,
+contamination, missing runs, and model updates; for that reason,
+**multiple relevant tests should be used instead of a single universal
+score**.
 
-Aradaki fark şudur:
+The difference is this:
 
-| | LLM-Stats | Bu platform |
+| | LLM-Stats | This platform |
 |---|---|---|
-| Ölçülen | Modelin **genel yeteneği** | Bizim pipeline'ımızın **çıktısı** |
-| Veri | Kamuya açık benchmark setleri | Kurumun kendi korpusu ve soruları |
-| Dil | Ağırlıklı İngilizce | Türkçe biçimbilime uyarlanmış |
-| Kapsam | Reasoning, coding, math, vision… | İçerik güvenliği, PII, injection, RAG kalitesi |
-| Çalışma yeri | Kamuya açık, çevrimiçi | İç ağ / hava kapalı |
-| Cevapladığı soru | "Hangi model daha iyi?" | "Bizim kurulumumuz üretime uygun mu?" |
+| What's measured | The model's **general capability** | The **output** of our pipeline |
+| Data | Public benchmark sets | The organization's own corpus and questions |
+| Language | Mostly English | Multilingual-capable content-safety layer |
+| Scope | Reasoning, coding, math, vision… | Content safety, PII, injection, RAG quality |
+| Where it runs | Public, online | Internal network / air-gapped |
+| Question answered | "Which model is better?" | "Is our deployment production-ready?" |
 
-**Bunlar rakip değil, tamamlayıcıdır.** LLM-Stats model seçimine yardım eder;
-bu platform seçilen modelin *bizim korpusumuzla, bizim promptumuzla, bizim
-kullanıcılarımıza* ne ürettiğini ölçer. Kamuya açık bir benchmark, bir
-modelin kurumun iç dokümanlarını özetlerken kişisel veri sızdırıp
-sızdırmadığını söyleyemez.
+**These are complementary, not competing.** LLM-Stats helps with model
+selection; this platform measures what the selected model produces
+*with our corpus, our prompt, for our users*. A public benchmark cannot
+tell you whether a model leaks personal data while summarizing the
+organization's internal documents.
 
-**Matematik boyutu köprüdür.** Görevlinin özellikle işaret ettiği math
-kategorisi, LLM-Stats'in de indekslediği bir yetenek alanıdır. Bu platformun
-`capability/math_eval.py` modülü, MATH benchmark ailesinin cevap çıkarma ve
-denklik kontrolü yaklaşımını kullanır — yani kurum içi ölçüm, kamuya açık
-sıralamalarla aynı metodolojik zemine oturur ve karşılaştırılabilir olur.
-
----
-
-## 1. Problem → çözüm → kaynak eşlemesi
-
-### 1.1 "Tek bir skor yanıltıcıdır"
-
-**Problem.** Model değerlendirmesinde yaygın hata, her şeyi tek bir sayıya
-indirgemektir. Yüksek genel skorlu bir model, kurumun asıl önemsediği
-boyutta (içerik güvenliği) kötü olabilir.
-
-**Çözüm.** Yedi ayrı boyut ölçülür, her biri kendi alt puanını korur;
-birleşik Trust Score bunların ağırlıklı ortalamasıdır ve alt puanlar her
-zaman ayrı raporlanır. Dashboard önce boyutları, sonra toplamı gösterir.
-
-**Dayanak.** LLM-Stats metodoloji notu: tek evrensel skor yerine birden çok
-ilgili test. Ayrıca TrustLLM (Sun vd., ICML 2024) güvenilirliği tek sayı
-değil, ayrı ayrı raporlanan boyutlar olarak tanımlar.
+**The math dimension is the bridge.** The math category the supervisor
+specifically pointed to is also a capability area LLM-Stats indexes.
+This platform's `capability/math_eval.py` module uses the answer
+extraction and equivalence-checking approach of the MATH benchmark
+family — so the internal measurement sits on the same methodological
+ground as the public rankings, and is comparable to them.
 
 ---
 
-### 1.2 "Ağırlıklar keyfi görünüyor"
+## 1. Problem → solution → source mapping
 
-**Problem.** Boyutları birleştirmek ağırlık gerektirir. "İçerik güvenliği
-neden %33?" sorusuna cevap verilemezse tüm skor tartışmalı hâle gelir.
+### 1.1 "A single score is misleading"
 
-**Çözüm — iki katmanlı türetme.**
-1. ISO/IEC 25010:2023, 9 kalite karakteristiği tanımlar (functional suitability,
-   performance efficiency, compatibility, interaction capability, reliability,
-   security, maintainability, flexibility, safety). Bunlardan projeyle
-   doğrudan ilgili 3 tanesi seçildi — Safety, Security, Functional
-   suitability — ve **aralarında eşit ağırlık** verildi. Bu seçim ve eşit
-   ağırlıklandırma standardın kendisinin değil, bu projenin kararıdır.
-2. Security içindeki bölüşüm, OWASP LLM Top 10 sıralamasına **rank-sum**
-   yöntemi uygulanarak yapılır: `w_i = (n+1-r_i) / Σ(n+1-r)`.
+**Problem.** A common mistake in model evaluation is collapsing
+everything into one number. A model with a high overall score can still
+be bad on the dimension the organization actually cares about (content
+safety).
 
-**Dayanak.**
-- ISO/IEC 25010:2023 — 9 karakteristiklik tam liste; bu projede ilgili 3
-  tanesi seçildi. Standart, seçilmemiş 6 karakteristik (performance
-  efficiency, compatibility, interaction capability, reliability,
-  maintainability, flexibility) arasında da bir öncelik sıralaması vermez —
-  bu yüzden seçilen 3'e eşit ağırlık verilmesi standardın ruhuna uygundur,
-  ama standardın doğrudan emrettiği bir şey değildir.
+**Solution.** Seven separate dimensions are measured, each keeping its
+own sub-score; the combined Trust Score is their weighted average, and
+sub-scores are always reported separately. The dashboard shows the
+dimensions first, then the total.
+
+**Basis.** The LLM-Stats methodology note: multiple relevant tests
+instead of one universal score. Also, TrustLLM (Sun et al., ICML 2024)
+defines trustworthiness not as a single number but as separately
+reported dimensions.
+
+---
+
+### 1.2 "The weights look arbitrary"
+
+**Problem.** Combining dimensions requires weights. If the question "why
+is content safety 33%" can't be answered, the entire score becomes
+contestable.
+
+**Solution — a two-layer derivation.**
+1. ISO/IEC 25010:2023 defines 9 quality characteristics (functional
+   suitability, performance efficiency, compatibility, interaction
+   capability, reliability, security, maintainability, flexibility,
+   safety). Of these, the 3 directly relevant to the project were
+   selected — Safety, Security, Functional suitability — and **weighted
+   equally between them**. This selection and equal weighting is this
+   project's decision, not the standard's own.
+2. The split within Security is done by applying a **rank-sum** method
+   to the OWASP LLM Top 10 ranking: `w_i = (n+1-r_i) / Σ(n+1-r)`.
+
+**Basis.**
+- ISO/IEC 25010:2023 — the full list of 9 characteristics; the 3
+  relevant ones were selected for this project. The standard also
+  assigns no priority ordering among the 6 unselected characteristics
+  (performance efficiency, compatibility, interaction capability,
+  reliability, maintainability, flexibility) — so weighting the selected
+  3 equally is in the spirit of the standard, though not something the
+  standard directly mandates.
 - Dawes, R. M. (1979), *The robust beauty of improper linear models in
-  decision making*, American Psychologist 34(7) — kalibrasyon verisi
-  yokken eşit ağırlıkların dayanıklı olduğunu gösterir.
+  decision making*, American Psychologist 34(7) — shows that, absent
+  calibration data, equal weights are robust.
 - Barron & Barrett (1996), *Decision Quality Using Ranked Attribute
-  Weights*, Management Science 42(11) — sıralı tercihten ağırlık türetme.
-- OWASP Top 10 for LLM Applications 2025 (v2.0, 18 Kasım 2024) — LLM01
-  Prompt Injection, LLM02 Sensitive Information Disclosure, LLM04 Data and
-  Model Poisoning sıralaması.
+  Weights*, Management Science 42(11) — deriving weight from ranked preference.
+- OWASP Top 10 for LLM Applications 2025 (v2.0, November 18, 2024) — the
+  LLM01 Prompt Injection, LLM02 Sensitive Information Disclosure, LLM04
+  Data and Model Poisoning ranking.
 
-**Söylenecek cümle.** *"Ağırlıkları ölçmedim, belgelenmiş bir yöntemle
-türettim. Bu bir kalibrasyon değil, gerekçelendirilmiş başlangıç noktası."*
+**The sentence to say.** *"I didn't measure the weights, I derived them
+with a documented method. This is not a calibration, it's a justified
+starting point."*
 
-**Ölçtüğüm şey ise şu:** ağırlık seçiminin sonuca etkisi. Üç farklı ön
-ayarla (`output_safety_first`, `owasp_rank`, `trustllm_equal`) koşuldu ve
-model sıralaması değişmedi. Bu test CI'da çalışır; sıralama değişirse build
-kırılır. **Bu gerçek bir ölçüm iddiasıdır.**
+**What I did measure:** the effect of the weight choice on the outcome.
+It was run with three different presets (`output_safety_first`,
+`owasp_rank`, `trustllm_equal`) and the model ranking did not change.
+This test runs in CI; the build breaks if the ranking changes. **This is
+a genuine measurement claim.**
 
 ---
 
-### 1.3 "İçerik filtresi kolayca atlatılır"
+### 1.3 "The content filter is easily bypassed"
 
-**Problem.** Sözlük tabanlı filtreler, kelimeyi yanlış yazarak veya harf
-arasına noktalama koyarak atlatılır. Bu teorik bir risk değil, belgelenmiş
-bir saldırıdır.
+**Problem.** Lexicon-based filters are bypassed by misspelling a word or
+inserting punctuation between letters. This is not a theoretical risk,
+it is a documented attack.
 
-**Çözüm — normalizasyon katmanı.** Tarama öncesi metin normalize edilir:
-Türkçe'ye duyarlı küçük harfe çevirme, harf değiştirme çözümü (`@→a`,
-`1→i`), harf arası ayraç birleştirme (`a.p.t.a.l → aptal`), üç ve üzeri
-harf tekrarını tek karaktere indirme (`aptaaaal → aptal`), Unicode NFKC
-normalizasyonu.
+**Solution — a normalization layer.** Text is normalized before
+scanning: lowercasing, resolving character substitution (`@→a`, `1→i`),
+merging inter-letter separators (`i.d.i.o.t → idiot`), collapsing three
+or more repeated letters into one (`idiooot → idiot`), Unicode NFKC
+normalization.
 
-**Dayanak.** Hosseini, H., Kannan, S., Zhang, B., & Poovendran, R. (2017),
+**Basis.** Hosseini, H., Kannan, S., Zhang, B., & Poovendran, R. (2017),
 *Deceiving Google's Perspective API Built for Detecting Toxic Comments*,
-arXiv:1702.08138. Çalışma, küfürlü kelimelerin yanlış yazılması veya araya
-noktalama eklenmesiyle sistemin atlatılabildiğini gösterir; "idiot"
-kelimesini "idiiot" yapmak aynı cümlenin toksisite oranını %84'ten %20'ye
-düşürmüştür.
+arXiv:1702.08138. The study shows the system can be bypassed by
+misspelling profane words or inserting punctuation between letters;
+turning "idiot" into "idiiot" dropped that same sentence's toxicity
+score from 84% to 20%.
 
-**Kanıt.** Bu davranış `tests/test_content_safety.py::test_f2_*` altında
-altı ayrı kaçırma tekniğiyle test edilir. Test paketi yazıldığında harf
-tekrarı normalizasyonunda gerçek bir hata bulundu ve düzeltildi — sistem
-`aptaaaal` girdisini kaçırıyordu.
+**Evidence.** This behavior is tested under
+`tests/test_content_safety.py::test_f2_*` with six separate evasion
+techniques. When the test suite was written, a real bug was found and
+fixed in the letter-repetition normalization — the system was letting
+`idiooot` slip through.
 
 ---
 
-### 1.4 "Filtrenin yanlış pozitif oranı bilinmiyor"
+### 1.4 "The filter's false-positive rate is unknown"
 
-**Problem.** Bir içerik filtresini yalnızca ihlal örnekleriyle test etmek
-yanıltıcıdır: her şeyi işaretleyen bir filtre de %100 başarılı görünür.
-Yanlış pozitif oranı ölçülmeden filtre üretime alınamaz.
+**Problem.** Testing a content filter only with violation examples is
+misleading: a filter that flags everything also looks 100% successful.
+A filter cannot go to production without its false-positive rate being measured.
 
-**Çözüm — işlevsel test paketi + karşıt vakalar.** Her test tek bir
-davranışı sınar. Testlerin bir kısmı **ihlal olmayan** metinlerdir (nötr
-kurumsal metin, nazik eleştiri, akademik bağlam) ve bunların
-işaretlenmemesi beklenir.
+**Solution — a functional test suite + contrast cases.** Each test
+probes a single behavior. Some of the tests are **non-violating** texts
+(neutral corporate text, polite criticism, academic context), and these
+are expected not to be flagged.
 
-**Dayanak.** Röttger, P., Vidgen, B., Nguyen, D., Waseem, Z., Margetts, H.,
+**Basis.** Röttger, P., Vidgen, B., Nguyen, D., Waseem, Z., Margetts, H.,
 & Pierrehumbert, J. (2021), *HateCheck: Functional Tests for Hate Speech
 Detection Models*, ACL-IJCNLP 2021, 41-58, DOI 10.18653/v1/2021.acl-long.4.
-Çalışma önceki araştırmaların incelenmesi ve sivil toplum paydaşlarıyla
-görüşmelerden 29 model işlevselliği tanımlar, test vakalarını yapılandırılmış
-bir etiketleme süreciyle doğrular ve 29 işlevsel test altında 3.728 vaka
-yayımlar; her vaka nefret içerikli / içermeyen altın etiketi taşır. Bu
-yöntemle test edilen hem akademik hem ticari modellerde kritik zayıflıklar
-ortaya çıkmıştır.
+The study defines 29 model functionalities drawn from a review of prior
+research and interviews with civil-society stakeholders, validates the
+test cases through a structured labeling process, and publishes 3,728
+cases across the 29 functional tests; every case carries a hateful/
+non-hateful gold label. Testing with this method surfaced critical
+weaknesses in both academic and commercial models.
 
-**Dürüstlük notu.** İki karşıt vaka şu an **başarısız** ve `xfail` olarak
-işaretli: "Aptallık üzerine bir psikoloji makalesi okudum" cümlesi yanlış
-pozitif üretiyor. Bu gizlenmedi — sözlük katmanının bağlam duyarlı olmadığı
-mimari bir sınırdır ve belgelenmiştir. Test `strict=True` ile durur: ileride
-sınıflandırıcı eklenip davranış düzelirse test uyarı verir.
-
----
-
-### 1.5 "Kimlik numarası tespiti yanlış pozitif üretir"
-
-**Problem.** Salt desen eşleştirmeyle 11 haneli her sayı TCKN, 16 haneli her
-sayı kart numarası sayılır. Sipariş numaraları, ürün kodları ve tarihler
-yanlışlıkla PII olarak işaretlenir.
-
-**Çözüm — yapısal doğrulama.** Her sayısal kimlik tipi kendi kontrol
-algoritmasından geçirilir; doğrulamayı geçmeyen eşleşme raporlanmaz.
-
-**Dayanak.**
-- ISO/IEC 7812-1 — kart numaraları için Luhn kontrol hanesi
-- ISO 13616-1 — IBAN mod-97 kontrolü
-- T.C. Kimlik Numarası 10. ve 11. hane algoritması
-
-**Kanıt.** `tests/test_validators_and_scoring.py` içinde geçerli ve geçersiz
-örneklerle test edilir. Ayrı bir test, rastgele 11 haneli sayıların
-çoğunun reddedildiğini doğrular — doğrulayıcının varlık gerekçesi budur.
+**An honesty note.** Two contrast cases currently **fail** and are
+marked `xfail`: the sentence "I read a psychology article about
+stupidity" produces a false positive. This is not hidden — the
+lexicon layer's lack of context-awareness is an architectural limit and
+is documented. The test halts with `strict=True`: if a classifier is
+added later and the behavior is fixed, the test will raise a warning.
 
 ---
 
-### 1.6 "Matematik cevabı doğru ama sistem yanlış sayıyor"
+### 1.5 "Identity number detection produces false positives"
 
-**Problem.** `1/2` ile `0.5`, `1,200` ile `1200`, `x^2-9` ile `x**2-9` aynı
-cevaptır. Ham string karşılaştırma bunları yanlış sayar ve doğruluk oranını
-olduğundan düşük gösterir.
+**Problem.** With plain pattern matching, every 11-digit number is
+treated as a national ID, every 16-digit number as a card number. Order
+numbers, product codes, and dates get mistakenly flagged as PII.
 
-**Çözüm — üç kademeli denklik kontrolü.** Önce normalize edilmiş string
-eşitliği, sonra tolerans dahilinde sayısal denklik, sonra SymPy ile sembolik
-denklik. Ayrıca cevap serbest metinden çıkarılır (`\boxed{}`, "Cevap:",
-son satır kalıpları).
+**Solution — structural validation.** Every numeric identity type is
+run through its own check algorithm; a match that fails validation is
+not reported.
 
-**Dayanak.**
-- Hendrycks, D. vd. (2021), *Measuring Mathematical Problem Solving With
-  the MATH Dataset*, NeurIPS Datasets & Benchmarks — cevap normalizasyonu
-  ve denklik kontrolü gerekliliği
-- Lewkowycz, A. vd. (2022), *Solving Quantitative Reasoning Problems with
-  Language Models* (Minerva), NeurIPS 2022
+**Basis.**
+- ISO/IEC 7812-1 — the Luhn check digit for card numbers
+- ISO 13616-1 — the IBAN mod-97 check
+- The Turkish National ID Number's 10th/11th-digit algorithm
 
-**Ek karar.** Cevabı **çıkarılamayan** sorular yanlış sayılmaz, ayrı
-raporlanır (`extraction_failures`). Gerekçe: format uyumsuzluğu ile muhakeme
-hatası farklı aksiyonlar gerektirir — biri prompt düzeltmesi, diğeri model
-değişikliği.
-
-**Kanıt.** Test paketi bu katmanda da gerçek bir hata buldu: `extract_answer`
-fonksiyonu "cevaplayamıyorum" kelimesinin içindeki "cevap" hecesini işaretçi
-sanıp `layamıyorum.` döndürüyordu. Kelime sınırı ve zorunlu ayraç eklendi.
+**Evidence.** Tested with valid and invalid examples in
+`tests/test_validators_and_scoring.py`. A separate test confirms that
+most random 11-digit numbers are rejected — this is the validator's
+reason for existing.
 
 ---
 
-### 1.7 "Cevap kötü ama nerede bozulduğu belli değil"
+### 1.6 "The math answer is correct but the system counts it wrong"
 
-**Problem.** RAG bir zincirdir. Sadece son çıktıya bakınca sorumlunun
-retrieval mı, model mi, yoksa filtre mi olduğu anlaşılmaz. Kök neden analizi
-yapılamaz.
+**Problem.** `1/2` and `0.5`, `1,200` and `1200`, `x^2-9` and `x**2-9`
+are the same answer. Raw string comparison counts these as wrong and
+understates the accuracy rate.
 
-**Çözüm — pipeline izleme katmanı.** Her sorgu için dört aşama ayrı ölçülür:
-`input_guardrail → retrieval → generation → output_guardrail`. Her aşamanın
-süresi, durumu, girdi/çıktı özeti ve o aşamada tetiklenen guardrail bulguları
-kaydedilir.
+**Solution — a three-tier equivalence check.** First normalized string
+equality, then numeric equivalence within a tolerance, then symbolic
+equivalence via SymPy. The answer is also extracted from free text
+(`\boxed{}`, "Answer:", last-line patterns).
 
-**Somut kazanım.** "6 bulgu var" demek yerine **"6 bulgunun tamamı çıktı
-aşamasında — risk kullanıcıdan gelmiyor, modelin kendisi PII sızdırıyor"**
-denebiliyor. Bu iki durum farklı aksiyon gerektirir: biri girdi filtresi,
-diğeri model veya prompt değişikliği.
+**Basis.**
+- Hendrycks, D. et al. (2021), *Measuring Mathematical Problem Solving
+  With the MATH Dataset*, NeurIPS Datasets & Benchmarks — the need for
+  answer normalization and equivalence checking
+- Lewkowycz, A. et al. (2022), *Solving Quantitative Reasoning Problems
+  with Language Models* (Minerva), NeurIPS 2022
 
-**Dayanak.** Bu, LLM gözlemlenebilirliğinin (observability) standart
-yaklaşımıdır; dağıtık sistemlerdeki span/trace modelinin RAG hattına
-uyarlanmış hâlidir. OWASP LLM Top 10 2025'te LLM05 (Improper Output
-Handling) ve LLM08 (Vector and Embedding Weaknesses) ayrı riskler olarak
-tanımlanır — yani çıktı ve retrieval ayrı denetlenmelidir.
+**An additional decision.** Questions whose answer **cannot be
+extracted** are not counted as wrong; they are reported separately
+(`extraction_failures`). Rationale: a format mismatch and a reasoning
+error call for different actions — one is a prompt fix, the other a
+model change.
+
+**Evidence.** The test suite found a real bug in this layer too: the
+`extract_answer` function was mistaking the "answer" substring inside a
+word like "I can't answer this" for a marker and returning garbage. A
+word boundary and a mandatory delimiter were added.
 
 ---
 
-### 1.8 "Bu araç kendisi bir saldırı yüzeyi"
+### 1.7 "The answer is bad but it's unclear where it broke down"
 
-**Problem.** Platform, tanım gereği güvenilmeyen metin işler:
-değerlendirilen modelin çıktısı saldırgan tarafından kontrol edilebilir.
-Tarayıcının kendisi hedef olabilir.
+**Problem.** RAG is a chain. Looking only at the final output, it's
+impossible to tell whether retrieval, the model, or the filter is
+responsible. Root-cause analysis can't be done.
 
-**Çözüm — dayanıklılık test paketi.** Dört zayıflık sınıfı test edilir:
+**Solution — a pipeline tracing layer.** Four stages are measured
+separately for every query: `input_guardrail → retrieval → generation →
+output_guardrail`. Each stage's duration, status, input/output summary,
+and the guardrail findings triggered at that stage are recorded.
 
-| Zayıflık | Kaynak | Test |
+**Concrete gain.** Instead of saying "there are 6 findings," you can say
+**"all 6 findings are at the output stage — the risk isn't coming from
+the user, the model itself is leaking PII."** These two situations call
+for different actions: one is an input filter, the other a model or
+prompt change.
+
+**Basis.** This is the standard approach to LLM observability; it's the
+span/trace model from distributed systems adapted to a RAG pipeline.
+OWASP LLM Top 10 2025 defines LLM05 (Improper Output Handling) and LLM08
+(Vector and Embedding Weaknesses) as separate risks — meaning output and
+retrieval must be audited separately.
+
+---
+
+### 1.8 "This tool is itself an attack surface"
+
+**Problem.** By definition, the platform processes untrusted text: the
+output of the model under evaluation can be controlled by an attacker.
+The scanner itself can be a target.
+
+**Solution — a robustness test suite.** Four weakness classes are tested:
+
+| Weakness | Source | Test |
 |---|---|---|
-| ReDoS — düzenli ifadede üstel geri izleme | CWE-1333; OWASP ReDoS | Patolojik girdide süre sınırı |
-| Kontrolsüz kaynak tüketimi | CWE-400; OWASP ASVS v4.0.3 V5.1 | Girdi boyutu kırpma |
-| Log injection | CWE-117 | Bağlam alanında kontrol karakteri yasağı |
-| Komut enjeksiyonu | CWE-78 | Hiçbir yerde `shell=True` yok |
+| ReDoS — exponential backtracking in a regex | CWE-1333; OWASP ReDoS | A time limit on pathological input |
+| Uncontrolled resource consumption | CWE-400; OWASP ASVS v4.0.3 V5.1 | Input size truncation |
+| Log injection | CWE-117 | A ban on control characters in the context field |
+| Command injection | CWE-78 | `shell=True` is used nowhere |
 
-**Ek karar.** Raporlarda ham hassas veri taşınmaz; bulgular maskelenir
-(`meh***@***le`). Gerekçe: değerlendirme raporu paylaşılabilir bir
-artefakttır; ham PII'yi rapora yazmak sızıntıyı ölçmek yerine çoğaltmak
-olurdu.
-
----
-
-### 1.9 "Ölçülmeyen boyut, temiz boyut gibi görünüyor"
-
-**Problem.** Bir sözlük boş bırakılmışsa hiçbir ihlal bulunmaz ve boyut
-100 puan alır. Bu, olmayan bir güvence verir — değerlendirme araçlarının en
-tehlikeli hatası.
-
-**Çözüm.** Ölçülmeyen kategoriler `inactive_categories` altında raporlanır,
-dashboard'da sarı uyarı olarak gösterilir. Ayrıca `skipped` durumundaki bir
-boyutun ağırlığı paydadan düşülür ve kalan boyutlara dağıtılır — sıfır puan
-verilmez, boyut hesaptan çıkarılır.
-
-**Söylenecek cümle.** *"'İhlal bulunamadı' ile 'aranmadı' aynı şey değildir;
-sistem bu ikisini asla karıştırmaz."*
+**An additional decision.** Reports never carry raw sensitive data;
+findings are masked (`joh***@***le`). Rationale: an evaluation report is
+a shareable artifact; writing raw PII into a report would multiply the
+leak instead of measuring it.
 
 ---
 
-### 1.10 "İç ağda çalışamaz, model indirmeye çalışır"
+### 1.9 "An unmeasured dimension looks like a clean one"
 
-**Problem.** Modern NLP kütüphaneleri çalışma anında model ağırlığı indirir.
-Hava kapalı ortamda bu sessiz hatalara yol açar.
+**Problem.** If a lexicon is left empty, no violation is found and the
+dimension gets a score of 100. This is a false sense of assurance — the
+most dangerous failure mode of an evaluation tool.
 
-**Çözüm — üç katmanlı fallback + offline zorlaması.**
-- Vektör deposu: Chroma → FAISS → saf NumPy
+**Solution.** Unmeasured categories are reported under
+`inactive_categories` and shown as a yellow warning on the dashboard.
+Also, a dimension in `skipped` status has its weight removed from the
+denominator and distributed to the remaining dimensions — it is not
+scored as zero, it is removed from the calculation.
+
+**The sentence to say.** *"'No violation found' and 'not scanned' are
+not the same thing; the system never conflates the two."*
+
+---
+
+### 1.10 "It can't run on an internal network, it tries to download a model"
+
+**Problem.** Modern NLP libraries download model weights at runtime. In
+an air-gapped environment, this causes silent failures.
+
+**Solution — a three-tier fallback + enforced offline mode.**
+- Vector store: Chroma → FAISS → pure NumPy
 - Embedding: sentence-transformers → hashing embedding
 - Faithfulness: RAGAS → heuristic
 
-`offline.enforce: true` ayarı `HF_HUB_OFFLINE` ve `TRANSFORMERS_OFFLINE`
-değişkenlerini süreç geneline uygular. Sınıflandırıcı modeli yerel diskten
-yüklenir. Docker'da değerlendirme servisi `network_mode: none` ile çalışır.
+The `offline.enforce: true` setting applies the `HF_HUB_OFFLINE` and
+`TRANSFORMERS_OFFLINE` variables process-wide. The classifier model is
+loaded from local disk. In Docker, the evaluation service runs with
+`network_mode: none`.
 
-**Kritik nokta.** Hangi arka ucun kullanıldığı çıktıda `backend` alanıyla
-raporlanır. Kalite sessizce düşmez, şeffaf şekilde etiketlenir.
+**A critical point.** Which backend was used is reported in the
+`backend` field of the output. Quality does not silently degrade, it is
+transparently labeled.
 
 ---
 
-## 2. Katman mimarisi — "kaç katman ve neden"
+## 2. Layer architecture — "how many layers, and why"
 
-Yedi katman, bağımlılık tek yönlü akar (üstteki alttakini import eder,
-tersi olmaz):
+Seven layers, dependency flows one way (the layer above imports the one
+below, never the reverse):
 
-| # | Katman | Sorumluluk | Neden ayrı |
+| # | Layer | Responsibility | Why separate |
 |---|---|---|---|
-| 1 | **Konfigürasyon** | `settings.yaml` + Pydantic | Hiçbir modülde hardcoded eşik/ağırlık yok; ortam değişkeniyle ezilebilir |
-| 2 | **Çekirdek altyapı** | Şemalar, JSON loglama, güvenli subprocess | Her analiz modülünün ortak ihtiyacı; bir kez yazılır |
-| 3 | **Analiz** | 7 boyut, her biri ayrı modül | Her modül tek başına çalıştırılabilir; biri bozulsa diğerleri çalışır |
-| 4 | **Pipeline izleme** | Aşama bazlı trace | Kök neden analizi; hangi aşamada bozulduğu |
-| 5 | **Puanlama** | Kaynağa bağlı ağırlık ön ayarları | Ağırlık değişikliği kod değişikliği gerektirmez; sürüm etiketlenir |
-| 6 | **Depolama ve izlenebilirlik** | SQLite + MLflow + JSON | Her koşu tekrar üretilebilir; puanlama sürümü kaydedilir |
-| 7 | **Sunum** | Streamlit dashboard | Sadece okur; ağır bağımlılık gerektirmez |
+| 1 | **Configuration** | `settings.yaml` + Pydantic | No module has a hardcoded threshold/weight; overridable via env var |
+| 2 | **Core infrastructure** | Schemas, JSON logging, safe subprocess | A shared need for every analysis module; written once |
+| 3 | **Analysis** | 7 dimensions, each its own module | Every module can run standalone; if one breaks, the others still work |
+| 4 | **Pipeline tracing** | Stage-by-stage trace | Root-cause analysis; where things broke down |
+| 5 | **Scoring** | Source-traceable weight presets | Changing a weight needs no code change; the version is tagged |
+| 6 | **Storage and traceability** | SQLite + MLflow + JSON | Every run is reproducible; the scoring version is recorded |
+| 7 | **Presentation** | Streamlit dashboard | Read-only; needs no heavy dependency |
 
-**Neden bu ayrım önemli.** Kurum yarın "içerik güvenliği ağırlığı %50 olsun"
-derse tek satır YAML değişir. "Yeni bir injection senaryosu ekleyin" derse
-tek dosya değişir. "Chroma yerine Qdrant kullanın" derse tek sınıf eklenir.
-Hiçbiri diğerini kırmaz.
-
----
-
-## 3. Kanıtlanabilir iddialar (sunumda güvenle söyleyebileceklerin)
-
-1. **"Test paketi dört gerçek hata buldu ve düzeltti."** Biri güvenlik
-   filtresini atlatan kaçırma tekniği, biri log injection vektörü, biri
-   cevap çıkarma hatası, biri veritabanına sıfır yazan alan eşleme hatası.
-2. **"Sonuç ağırlık seçimine duyarlı değil."** Üç farklı ön ayarda model
-   sıralaması aynı; bu CI'da otomatik doğrulanıyor.
-3. **"Sistem güvensiz örneği ayırt ediyor."** PII sızdıran ve injection'a
-   yenilen model, temiz modellerden belirgin düşük puan alıyor; CI'da
-   assertion olarak duruyor.
-4. **"Pipeline'ın hangi aşamasında risk oluştuğunu söyleyebiliyorum."**
-   Aşama bazlı bulgu dağılımı ve darboğaz tespiti kaydediliyor.
-5. **"135 otomatik test, 2 belgelenmiş sınırlama."** Sınırlamalar gizlenmiyor,
-   `xfail` ile işaretli ve gerekçeli.
+**Why this separation matters.** If the organization says tomorrow
+"content safety weight should be 50%," a single YAML line changes. If
+they say "add a new injection scenario," a single file changes. If they
+say "use Qdrant instead of Chroma," a single class is added. None of
+these break the others.
 
 ---
 
-## 4. Kanıtlanamayan iddialar (asla söyleme)
+## 3. Provable claims (what you can confidently say in a presentation)
 
-1. ❌ *"Ağırlıkları ölçtüm."* → Türettim. Ölçmek için sonuç değişkeni ve
-   regresyon gerekir; öyle bir veri yok.
-2. ❌ *"Sistem kalibre edildi."* → Edilmedi. Kalibrasyon için en az 100
-   örneklik, iki bağımsız etiketleyicili altın set ve Cohen's kappa raporu
-   gerekir.
-3. ❌ *"İç ağda çalışacak kadar güvenli."* → Dayanıklılık testleri belirli
-   zayıflık sınıflarını kapsar; bağımsız sızma testi yerine geçmez. Ayrıca
-   dashboard'da kimlik doğrulama yok.
-4. ❌ *"İçerik güvenliği %100."* → Sözlükler kurum tarafından doldurulmadığı
-   sürece bu sayı "aranmadı" anlamına gelir.
-
-**Bu dört sınırı kendin söyle, sorulmasını bekleme.** Sınırını bilen bir
-ölçüm aracı, bilmeyenden daha güvenilirdir.
+1. **"The test suite found and fixed four real bugs."** One was an
+   evasion technique that bypassed the security filter, one a log
+   injection vector, one an answer-extraction error, one a field-mapping
+   error that wrote zero into the database.
+2. **"The result is not sensitive to the weight choice."** The model
+   ranking is the same across three different presets; this is verified
+   automatically in CI.
+3. **"The system can tell an unsafe example apart."** A model that leaks
+   PII and falls for injection scores markedly lower than clean models;
+   this stands as an assertion in CI.
+4. **"I can say at which stage of the pipeline a risk arose."**
+   Stage-by-stage finding distribution and bottleneck detection are
+   recorded.
+5. **"135 automated tests, 2 documented limitations."** The limitations
+   aren't hidden, they're marked `xfail` with a reason.
 
 ---
 
-## 5. Kaynak listesi
+## 4. Unprovable claims (never say these)
 
-Bu oturumda içeriği doğrudan doğrulananlar:
+1. ❌ *"I measured the weights."* → I derived them. Measuring would
+   require an outcome variable and regression; no such data exists.
+2. ❌ *"The system is calibrated."* → It is not. Calibration requires a
+   gold set of at least 100 samples with two independent labelers, and a
+   Cohen's kappa report.
+3. ❌ *"It's secure enough to run on an internal network."* → The
+   robustness tests cover specific weakness classes; they do not replace
+   an independent penetration test. Also, the dashboard has no
+   authentication if it's disabled by configuration.
+4. ❌ *"Content safety is 100%."* → Until the lexicons are filled in by
+   the organization, this number means "not scanned."
 
-- Röttger vd. (2021), HateCheck, ACL-IJCNLP 2021, DOI 10.18653/v1/2021.acl-long.4
-- Hosseini vd. (2017), Deceiving Google's Perspective API, arXiv:1702.08138
-- OWASP Top 10 for LLM Applications 2025 (v2.0, 18 Kasım 2024)
-- llm-stats.com/benchmarks — metodoloji ve kapsam
+**State these four limits yourself, don't wait to be asked.** An
+evaluation tool that knows its own limits is more trustworthy than one
+that doesn't.
 
-Standart referanslar (kullanmadan önce künyeyi kendin teyit et):
+---
 
-- ISO/IEC 25010:2023 — yazılım kalite modeli
-- ISO/IEC 7812-1 — Luhn kontrol hanesi
+## 5. Source list
+
+Sources whose content was directly verified in this session:
+
+- Röttger et al. (2021), HateCheck, ACL-IJCNLP 2021, DOI 10.18653/v1/2021.acl-long.4
+- Hosseini et al. (2017), Deceiving Google's Perspective API, arXiv:1702.08138
+- OWASP Top 10 for LLM Applications 2025 (v2.0, November 18, 2024)
+- llm-stats.com/benchmarks — methodology and scope
+
+Standard references (verify the citation yourself before using it):
+
+- ISO/IEC 25010:2023 — the software quality model
+- ISO/IEC 7812-1 — the Luhn check digit
 - ISO 13616-1 — IBAN
-- CWE-1333, CWE-400, CWE-117, CWE-78 — zayıflık sınıfları
-- OWASP ASVS v4.0.3 — girdi doğrulama gereksinimleri
+- CWE-1333, CWE-400, CWE-117, CWE-78 — weakness classes
+- OWASP ASVS v4.0.3 — input validation requirements
 - Dawes (1979), American Psychologist 34(7), 571-582
 - Barron & Barrett (1996), Management Science 42(11), 1515-1523
-- Hendrycks vd. (2021), MATH Dataset, NeurIPS D&B
-- Lewkowycz vd. (2022), Minerva, NeurIPS
-- Sun vd. (2024), TrustLLM, ICML
+- Hendrycks et al. (2021), MATH Dataset, NeurIPS D&B
+- Lewkowycz et al. (2022), Minerva, NeurIPS
+- Sun et al. (2024), TrustLLM, ICML
 - Çöltekin (2020), A Corpus of Turkish Offensive Language, LREC
 
-**Uyarı.** Bir kaynağı sunumda kullanacaksan önce aç ve oku. "Şu makaleye
-göre yaptım" deyip makale sorulduğunda cevap verememek, hiç kaynak
-göstermemekten daha kötüdür.
+**Warning.** If you plan to cite a source in a presentation, open and
+read it first. Saying "I did this based on that paper" and then not
+being able to answer a question about the paper is worse than citing no
+source at all.

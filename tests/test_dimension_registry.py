@@ -1,9 +1,9 @@
-"""Boyut kayıt sistemi testleri.
+"""Dimension registry tests.
 
-Bu testler, "yeni bir boyut eklemek motor kodunu değiştirmeyi
-gerektirmiyor" iddiasını **kanıtlar** — sadece iddia etmekle yetinmez.
-Ayrıca bir boyutun hata vermesinin diğerlerini durdurmadığını (hata
-izolasyonu) doğrular.
+These tests **prove** the claim that "adding a new dimension does not
+require changing the engine code" — not merely assert it. They also
+verify that one dimension's failure does not stop the others (error
+isolation).
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ from core.schemas import BaseResult, Status
 
 @pytest.fixture(autouse=True)
 def _clean_registry():
-    """Her testi, yerleşik boyutlar kayıtlı temiz bir durumdan başlatır."""
+    """Starts every test from a clean state with the built-in dimensions registered."""
     reset_registry()
     register_builtin_dimensions()
     yield
@@ -39,61 +39,62 @@ def _dummy_result(score: float = 50.0, status: Status = Status.OK) -> BaseResult
 
 
 # --------------------------------------------------------------------------- #
-# Temel kayıt davranışı
+# Basic registration behavior
 # --------------------------------------------------------------------------- #
 def test_register_and_retrieve() -> None:
-    """Kaydedilen bir boyut adıyla geri alınabilmeli."""
+    """A registered dimension must be retrievable by name."""
     register(Dimension("test_dim", "Test", "safety", None, lambda _ctx: _dummy_result()))
     assert get("test_dim") is not None
     assert get("test_dim").label == "Test"
 
 
 def test_duplicate_registration_raises_by_default() -> None:
-    """Aynı anahtarla ikinci kayıt, açıkça izin verilmedikçe hataya düşmeli."""
-    register(Dimension("dup", "İlk", "safety", None, lambda _ctx: _dummy_result()))
-    with pytest.raises(ValueError, match="zaten kayıtlı"):
-        register(Dimension("dup", "İkinci", "safety", None, lambda _ctx: _dummy_result()))
+    """A second registration under the same key must raise unless explicitly allowed."""
+    register(Dimension("dup", "First", "safety", None, lambda _ctx: _dummy_result()))
+    with pytest.raises(ValueError, match="already registered"):
+        register(Dimension("dup", "Second", "safety", None, lambda _ctx: _dummy_result()))
 
 
 def test_duplicate_registration_allowed_with_replace() -> None:
-    """replace=True ile bilinçli üzerine yazma serbest olmalı."""
-    register(Dimension("dup", "İlk", "safety", None, lambda _ctx: _dummy_result()))
-    register(Dimension("dup", "İkinci", "safety", None, lambda _ctx: _dummy_result()), replace=True)
-    assert get("dup").label == "İkinci"
+    """A deliberate overwrite with replace=True must be allowed."""
+    register(Dimension("dup", "First", "safety", None, lambda _ctx: _dummy_result()))
+    register(Dimension("dup", "Second", "safety", None, lambda _ctx: _dummy_result()), replace=True)
+    assert get("dup").label == "Second"
 
 
 def test_invalid_pillar_rejected() -> None:
-    """Tanımsız bir ISO sütunu reddedilmeli — sessizce kabul edilmemeli."""
+    """An undefined ISO pillar must be rejected — not silently accepted."""
     with pytest.raises(ValueError, match="iso_pillar"):
-        register(Dimension("bad", "Kötü", "not_a_pillar", None, lambda _ctx: _dummy_result()))
+        register(Dimension("bad", "Bad", "not_a_pillar", None, lambda _ctx: _dummy_result()))
 
 
 def test_unregister_removes_dimension() -> None:
-    """Kayıttan çıkarma gerçekten kaldırmalı."""
-    register(Dimension("temp", "Geçici", "safety", None, lambda _ctx: _dummy_result()))
+    """Unregistering must actually remove the dimension."""
+    register(Dimension("temp", "Temporary", "safety", None, lambda _ctx: _dummy_result()))
     unregister("temp")
     assert get("temp") is None
 
 
 # --------------------------------------------------------------------------- #
-# ASIL İDDİA: motoru değiştirmeden yeni boyut eklemek
+# THE CORE CLAIM: adding a new dimension without changing the engine
 # --------------------------------------------------------------------------- #
 def test_new_dimension_is_picked_up_without_engine_changes() -> None:
-    """Yeni kaydedilen bir boyut, benchmark_engine.py'ye dokunmadan devreye girer.
+    """A newly registered dimension takes effect without touching benchmark_engine.py.
 
-    Bu, "eklenti mimarisi" iddiasının kanıtıdır: benchmark_engine modülü
-    burada import edilip hiç değiştirilmeden, sadece yeni bir dimension
-    kaydedilerek onun döngüsüne dahil olduğu gösterilir.
+    This is the proof of the "plugin architecture" claim: the
+    benchmark_engine module is imported here and never modified — only a
+    new dimension is registered, and it is shown to be included in its
+    loop.
     """
     import benchmark_engine
 
     def custom_evaluator(ctx: DimensionContext) -> BaseResult:
-        return BaseResult(score=77.0, status=Status.OK, message=f"{ctx.model_name} icin ozel")
+        return BaseResult(score=77.0, status=Status.OK, message=f"custom for {ctx.model_name}")
 
     register(
         Dimension(
             key="custom_test_dimension",
-            label="Özel test boyutu",
+            label="Custom test dimension",
             iso_pillar="functional",
             owasp_ref=None,
             evaluator=custom_evaluator,
@@ -113,7 +114,7 @@ def test_new_dimension_is_picked_up_without_engine_changes() -> None:
 
 
 def test_builtin_dimensions_registered() -> None:
-    """Platformun yedi yerleşik boyutu kayıtlı olmalı."""
+    """The platform's seven built-in dimensions must be registered."""
     keys = {dimension.key for dimension in all_dimensions()}
     expected = {
         "content_safety", "injection", "pii", "poisoning",
@@ -123,7 +124,7 @@ def test_builtin_dimensions_registered() -> None:
 
 
 def test_pillar_membership_covers_all_dimensions() -> None:
-    """Her boyut tam olarak bir ISO sütununa ait olmalı, hiçbiri kaybolmamalı."""
+    """Every dimension must belong to exactly one ISO pillar, none lost."""
     grouping = pillar_membership()
     total = sum(len(members) for members in grouping.values())
     assert total == len(all_dimensions())
@@ -133,23 +134,23 @@ def test_pillar_membership_covers_all_dimensions() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# Hata izolasyonu
+# Error isolation
 # --------------------------------------------------------------------------- #
 def test_one_dimension_failure_does_not_affect_others() -> None:
-    """Bir boyutun evaluator'ı patlarsa diğer boyutlar etkilenmemeli.
+    """If one dimension's evaluator blows up, the other dimensions must not be affected.
 
-    Bu, benchmark_engine.py'deki try/except sarmalayıcının davranışını
-    değil, registry seviyesindeki bağımsızlığı test eder: her evaluator
-    kendi kapsamında çalışır, ortak durum paylaşmaz.
+    This tests independence at the registry level, not the try/except
+    wrapper behavior in benchmark_engine.py: each evaluator runs in its
+    own scope and shares no state.
     """
     def broken_evaluator(ctx: DimensionContext) -> BaseResult:
-        raise RuntimeError("kasitli hata")
+        raise RuntimeError("deliberate failure")
 
     def healthy_evaluator(ctx: DimensionContext) -> BaseResult:
         return BaseResult(score=90.0, status=Status.OK)
 
-    register(Dimension("broken", "Bozuk", "safety", None, broken_evaluator))
-    register(Dimension("healthy", "Sağlıklı", "safety", None, healthy_evaluator))
+    register(Dimension("broken", "Broken", "safety", None, broken_evaluator))
+    register(Dimension("healthy", "Healthy", "safety", None, healthy_evaluator))
 
     context = DimensionContext(
         model_name="m", records=[], retrieval_records=[],
@@ -159,12 +160,12 @@ def test_one_dimension_failure_does_not_affect_others() -> None:
     with pytest.raises(RuntimeError):
         get("broken").evaluator(context)
 
-    # Bozuk boyuttan bağımsız olarak sağlıklı boyut hâlâ çalışır.
+    # The healthy dimension still works, independent of the broken one.
     assert get("healthy").evaluator(context).score == 90.0
 
 
 def test_register_builtin_is_idempotent() -> None:
-    """register_builtin_dimensions() birden çok kez çağrılırsa hata vermemeli."""
+    """register_builtin_dimensions() must not raise if called multiple times."""
     register_builtin_dimensions()
     count_before = len(all_dimensions())
     register_builtin_dimensions()

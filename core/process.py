@@ -1,9 +1,9 @@
-"""Harici araçları (pylint, bandit, pip-audit, pytest, docker) çalıştırma katmanı.
+"""The layer for running external tools (pylint, bandit, pip-audit, pytest, docker).
 
-Savunmacı programlama kuralları:
-    * ``shell=True`` asla kullanılmaz (komut enjeksiyonu yüzeyi).
-    * Her çağrının bir timeout'u vardır; süre aşımında süreç ağacı öldürülür.
-    * stdout/stderr sınırlı boyutta tutulur (bellek şişmesini önlemek için).
+Defensive programming rules:
+    * ``shell=True`` is never used (a command-injection surface).
+    * Every call has a timeout; the process tree is killed on timeout.
+    * stdout/stderr are kept bounded (to avoid unbounded memory growth).
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from __future__ import annotations
 import os
 import shutil
 import signal
-import subprocess  # nosec B404 - komutlar sabit listelerden kurulur, shell kullanılmaz
+import subprocess  # nosec B404 - commands are built from fixed lists, shell is never used
 import sys
 import time
 from dataclasses import dataclass, field
@@ -26,7 +26,7 @@ DEFAULT_MAX_OUTPUT = 200_000
 
 @dataclass
 class CommandResult:
-    """Bir dış komutun sonucu."""
+    """The result of an external command."""
 
     command: list[str]
     returncode: int
@@ -39,14 +39,14 @@ class CommandResult:
 
     @property
     def ok(self) -> bool:
-        """Komut hatasız ve süre aşımı olmadan bitti mi?"""
+        """Did the command finish without error and without timing out?"""
         return self.returncode == 0 and not self.timed_out and not self.error
 
 
 def _truncate(text: str, limit: int) -> str:
     if len(text) <= limit:
         return text
-    return text[:limit] + f"\n... [{len(text) - limit} karakter kirpildi]"
+    return text[:limit] + f"\n... [{len(text) - limit} characters truncated]"
 
 
 def run_command(
@@ -58,18 +58,18 @@ def run_command(
     max_output: int = DEFAULT_MAX_OUTPUT,
     allowed_returncodes: tuple[int, ...] = (0,),
 ) -> CommandResult:
-    """Komutu çalıştırır ve sonucu yapılandırılmış biçimde döndürür.
+    """Runs the command and returns the result in a structured form.
 
     Args:
-        command: Argüman listesi (``shell=True`` kullanılmaz).
-        cwd: Çalışma dizini.
-        timeout: Saniye cinsinden üst sınır.
-        env: Ek/override ortam değişkenleri (mevcut ortamla birleştirilir).
-        max_output: stdout/stderr için karakter sınırı.
-        allowed_returncodes: Bunlar dışındaki kodlar uyarı olarak loglanır.
+        command: The argument list (``shell=True`` is never used).
+        cwd: The working directory.
+        timeout: The upper bound, in seconds.
+        env: Additional/override environment variables (merged with the current environment).
+        max_output: The character limit for stdout/stderr.
+        allowed_returncodes: Codes outside this set are logged as a warning.
     """
     if not command:
-        return CommandResult(command=[], returncode=-1, error="bos komut")
+        return CommandResult(command=[], returncode=-1, error="empty command")
 
     full_env = os.environ.copy()
     if env:
@@ -90,12 +90,12 @@ def run_command(
     except subprocess.TimeoutExpired as exc:
         duration = time.perf_counter() - start
         logger.warning(
-            "komut zaman asimina ugradi",
+            "command timed out",
             extra={"command": command[:4], "timeout_sec": timeout},
         )
         return CommandResult(
             command=command,
-            # SIGKILL POSIX'e özgüdür; Windows'ta yok (AttributeError riski).
+            # SIGKILL is POSIX-specific; it doesn't exist on Windows (AttributeError risk).
             returncode=-getattr(signal, "SIGKILL", signal.SIGTERM),
             stdout=_truncate(exc.stdout or "" if isinstance(exc.stdout, str) else "", max_output),
             stderr=_truncate(exc.stderr or "" if isinstance(exc.stderr, str) else "", max_output),
@@ -105,7 +105,7 @@ def run_command(
         )
     except (OSError, ValueError) as exc:
         duration = time.perf_counter() - start
-        logger.error("komut calistirilamadi", extra={"command": command[:4], "error": str(exc)})
+        logger.error("command could not be run", extra={"command": command[:4], "error": str(exc)})
         return CommandResult(
             command=command, returncode=-1, duration_sec=duration, error=str(exc)
         )
@@ -120,23 +120,23 @@ def run_command(
     )
     if completed.returncode not in allowed_returncodes:
         logger.debug(
-            "komut sifir olmayan kod dondurdu",
+            "command returned a non-zero code",
             extra={"command": command[:4], "returncode": completed.returncode},
         )
     return result
 
 
 def python_module_command(module: str, *args: str) -> list[str]:
-    """``python -m <module> ...`` komutunu mevcut yorumlayıcı ile kurar."""
+    """Builds a ``python -m <module> ...`` command using the current interpreter."""
     return [sys.executable, "-m", module, *args]
 
 
 def tool_available(module: str) -> bool:
-    """Bir aracın ``python -m <module>`` olarak çağrılabilir olduğunu kontrol eder."""
+    """Checks whether a tool can be invoked as ``python -m <module>``."""
     probe = run_command(python_module_command(module, "--version"), timeout=60)
     return probe.returncode == 0 or "usage" in (probe.stdout + probe.stderr).lower()
 
 
 def binary_available(name: str) -> bool:
-    """PATH üzerinde bir çalıştırılabilir var mı?"""
+    """Is an executable available on PATH?"""
     return shutil.which(name) is not None

@@ -1,15 +1,17 @@
-"""Track B — Vektör deposu ve embedding katmanı.
+"""Track B — vector store and embedding layer.
 
-**Tasarım kararı (bilinçli):** tek bir vektör DB'sine bağlanmak yerine
-takılabilir bir arka uç kullanılır. Sıra: **Chroma → FAISS → saf NumPy**.
-Gerekçe: staj/demo ortamında (ve CI'da) ağır bağımlılıklar her zaman
-kurulamaz; NumPy fallback sayesinde Track B testleri her koşulda çalışır.
-``config/settings.yaml`` içindeki ``rag.vector_backend`` ile sabitlenebilir.
+**Design decision (deliberate):** rather than binding to a single vector
+DB, a pluggable backend is used. Order: **Chroma → FAISS → pure NumPy**.
+Rationale: in an internship/demo environment (and in CI), heavy
+dependencies aren't always installable; the NumPy fallback means Track B
+tests run under all conditions. It can be pinned via ``rag.vector_backend``
+in ``config/settings.yaml``.
 
-Embedding için de aynı yaklaşım: ``sentence-transformers`` varsa gerçek
-model, yoksa deterministik **hashing embedding** (bag-of-hashed-ngrams +
-L2 normalizasyon) kullanılır. Fallback kalitesi düşüktür ama pipeline'ın
-uçtan uca doğrulanmasına yeter ve sonuçta ``backend`` alanı raporlanır.
+Same approach for embedding: a real model via ``sentence-transformers``
+if available, otherwise a deterministic **hashing embedding**
+(bag-of-hashed-ngrams + L2 normalization). The fallback's quality is
+lower, but it's enough to validate the pipeline end-to-end, and the
+``backend`` field reports which one was used.
 """
 
 from __future__ import annotations
@@ -35,13 +37,13 @@ _TOKEN_PATTERN = re.compile(r"[a-zA-ZçğıöşüÇĞİÖŞÜ0-9]+")
 
 
 def tokenize(text: str) -> list[str]:
-    """Basit, dile duyarsız tokenizer (lexical arama ve hashing için)."""
+    """A simple, language-agnostic tokenizer (for lexical search and hashing)."""
     return [token.lower() for token in _TOKEN_PATTERN.findall(text or "")]
 
 
 @dataclass
 class Document:
-    """Vektör deposuna yazılan tek bir chunk."""
+    """A single chunk written to the vector store."""
 
     doc_id: str
     text: str
@@ -51,7 +53,7 @@ class Document:
 
 @dataclass
 class SearchHit:
-    """Arama sonucu."""
+    """A search result."""
 
     doc_id: str
     text: str
@@ -64,16 +66,16 @@ class SearchHit:
 # Embedding
 # --------------------------------------------------------------------------- #
 class Embedder(Protocol):
-    """Embedding sağlayıcısı arayüzü."""
+    """The embedding provider interface."""
 
     name: str
 
     def encode(self, texts: list[str]) -> np.ndarray:
-        """Metin listesini (n, d) boyutlu float32 matrise çevirir."""
+        """Converts a list of texts into an (n, d) float32 matrix."""
 
 
 class HashingEmbedder:
-    """Bağımlılıksız, deterministik hashing tabanlı embedding."""
+    """A dependency-free, deterministic hashing-based embedding."""
 
     name = "hashing"
 
@@ -93,14 +95,14 @@ class HashingEmbedder:
         return vector / norm if norm > 0 else vector
 
     def encode(self, texts: list[str]) -> np.ndarray:
-        """Metinleri hashing uzayına gömer."""
+        """Embeds texts into hashing space."""
         if not texts:
             return np.zeros((0, self.dim), dtype=np.float32)
         return np.vstack([self._vector(text) for text in texts]).astype(np.float32)
 
 
 class SentenceTransformerEmbedder:
-    """``sentence-transformers`` tabanlı gerçek embedding."""
+    """Real embedding based on ``sentence-transformers``."""
 
     name = "sentence_transformers"
 
@@ -111,7 +113,7 @@ class SentenceTransformerEmbedder:
         self.dim = int(self._model.get_sentence_embedding_dimension())
 
     def encode(self, texts: list[str]) -> np.ndarray:
-        """Metinleri model uzayına gömer (L2 normalize)."""
+        """Embeds texts into the model's space (L2 normalized)."""
         if not texts:
             return np.zeros((0, self.dim), dtype=np.float32)
         vectors = self._model.encode(
@@ -121,7 +123,7 @@ class SentenceTransformerEmbedder:
 
 
 def build_embedder(settings: Settings | None = None) -> Embedder:
-    """Konfigürasyona göre kullanılabilir en iyi embedder'ı seçer."""
+    """Selects the best available embedder based on configuration."""
     settings = settings or get_settings()
     backend = settings.rag.embedding_backend.lower()
     if backend in {"auto", "sentence_transformers"}:
@@ -133,7 +135,7 @@ def build_embedder(settings: Settings | None = None) -> Embedder:
             if backend == "sentence_transformers":
                 raise
             logger.warning(
-                "sentence-transformers kullanilamadi, hashing embedding'e dusuluyor",
+                "sentence-transformers unavailable, falling back to hashing embedding",
                 extra={"error": str(exc)},
             )
     logger.info("embedding backend", extra={"backend": "hashing"})
@@ -141,10 +143,10 @@ def build_embedder(settings: Settings | None = None) -> Embedder:
 
 
 # --------------------------------------------------------------------------- #
-# Vektör deposu
+# Vector store
 # --------------------------------------------------------------------------- #
 class NumpyVectorStore:
-    """Bellek içi + JSON kalıcı, kosinüs benzerliğine dayalı basit depo."""
+    """A simple in-memory + JSON-persisted store based on cosine similarity."""
 
     backend = "numpy"
 
@@ -156,7 +158,7 @@ class NumpyVectorStore:
         self._matrix: np.ndarray = np.zeros((0, 1), dtype=np.float32)
 
     def add(self, documents: list[Document]) -> None:
-        """Dokümanları depoya ekler (embedding hesaplanır)."""
+        """Adds documents to the store (embeddings are computed)."""
         if not documents:
             return
         vectors = self.embedder.encode([doc.text for doc in documents])
@@ -166,7 +168,7 @@ class NumpyVectorStore:
         )
 
     def query(self, text: str, top_k: int) -> list[SearchHit]:
-        """Kosinüs benzerliğine göre en yakın chunk'ları döndürür."""
+        """Returns the closest chunks by cosine similarity."""
         if not self._documents:
             return []
         query_vector = self.embedder.encode([text])[0]
@@ -184,21 +186,21 @@ class NumpyVectorStore:
         ]
 
     def all_documents(self) -> list[Document]:
-        """Depodaki tüm dokümanlar (lexical/BM25 katmanı için)."""
+        """All documents in the store (for the lexical/BM25 layer)."""
         return list(self._documents)
 
     def count(self) -> int:
-        """Doküman sayısı."""
+        """Document count."""
         return len(self._documents)
 
     def reset(self) -> None:
-        """Depoyu sıfırlar."""
+        """Resets the store."""
         self._documents = []
         self._matrix = np.zeros((0, 1), dtype=np.float32)
         self.path.unlink(missing_ok=True)
 
     def persist(self) -> None:
-        """Depoyu diske yazar."""
+        """Writes the store to disk."""
         payload = {
             "documents": [
                 {
@@ -214,7 +216,7 @@ class NumpyVectorStore:
         self.path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
 
     def load(self) -> bool:
-        """Diskteki depoyu yükler; başarılıysa True döner."""
+        """Loads the store from disk; returns True on success."""
         if not self.path.exists():
             return False
         try:
@@ -235,7 +237,7 @@ class NumpyVectorStore:
 
 
 class ChromaVectorStore:
-    """ChromaDB tabanlı kalıcı depo."""
+    """A persistent store based on ChromaDB."""
 
     backend = "chroma"
 
@@ -251,7 +253,7 @@ class ChromaVectorStore:
         self._cache: list[Document] = []
 
     def add(self, documents: list[Document]) -> None:
-        """Dokümanları koleksiyona ekler."""
+        """Adds documents to the collection."""
         if not documents:
             return
         vectors = self.embedder.encode([doc.text for doc in documents])
@@ -264,7 +266,7 @@ class ChromaVectorStore:
         self._cache.extend(documents)
 
     def query(self, text: str, top_k: int) -> list[SearchHit]:
-        """Koleksiyonda benzerlik araması yapar."""
+        """Runs a similarity search over the collection."""
         vector = self.embedder.encode([text])[0].tolist()
         response = self._collection.query(
             query_embeddings=[vector], n_results=max(1, top_k),
@@ -290,7 +292,7 @@ class ChromaVectorStore:
         return hits
 
     def all_documents(self) -> list[Document]:
-        """Koleksiyondaki tüm dokümanlar."""
+        """All documents in the collection."""
         if self._cache:
             return list(self._cache)
         payload = self._collection.get(include=["documents", "metadatas"])
@@ -309,11 +311,11 @@ class ChromaVectorStore:
         return documents
 
     def count(self) -> int:
-        """Doküman sayısı."""
+        """Document count."""
         return int(self._collection.count())
 
     def reset(self) -> None:
-        """Koleksiyonu boşaltır."""
+        """Empties the collection."""
         name = self._collection.name
         self._client.delete_collection(name)
         self._collection = self._client.get_or_create_collection(
@@ -322,17 +324,17 @@ class ChromaVectorStore:
         self._cache = []
 
     def persist(self) -> None:
-        """Chroma PersistentClient otomatik kalıcıdır."""
+        """Chroma's PersistentClient persists automatically."""
 
     def load(self) -> bool:
-        """Var olan koleksiyonda veri olup olmadığını bildirir."""
+        """Reports whether the existing collection has any data."""
         return self.count() > 0
 
 
 def build_vector_store(
     settings: Settings | None = None, embedder: Embedder | None = None
 ) -> NumpyVectorStore | ChromaVectorStore:
-    """Konfigürasyona göre vektör deposunu kurar (fallback zinciriyle)."""
+    """Builds the vector store based on configuration (with a fallback chain)."""
     settings = settings or get_settings()
     embedder = embedder or build_embedder(settings)
 
@@ -350,7 +352,7 @@ def build_vector_store(
             if backend == "chroma":
                 raise
             logger.warning(
-                "chroma kullanilamadi, numpy deposuna dusuluyor", extra={"error": str(exc)}
+                "chroma unavailable, falling back to numpy store", extra={"error": str(exc)}
             )
 
     logger.info("vector store backend", extra={"backend": "numpy"})
@@ -358,10 +360,10 @@ def build_vector_store(
 
 
 # --------------------------------------------------------------------------- #
-# Lexical skorlama (hybrid retrieval için)
+# Lexical scoring (for hybrid retrieval)
 # --------------------------------------------------------------------------- #
 def bm25_scores(query: str, documents: list[Document], k1: float = 1.5, b: float = 0.75) -> np.ndarray:
-    """Doküman listesi için BM25 skorlarını hesaplar."""
+    """Computes BM25 scores for a document list."""
     if not documents:
         return np.zeros(0, dtype=np.float32)
 

@@ -1,22 +1,25 @@
-# Tehdit ve şiddet çağrısı kökleri
+# Roots for threats and calls to violence
 #
-# Kategori tanımı: Çöltekin, Ç. (2020). "A Corpus of Turkish Offensive
-# Language on Social Media." LREC 2020 — OffensEval şemasında şiddet
-# tehdidi, hedefli aşağılamanın (targeted insult) en ağır alt kümesi
-# olarak ele alınır; bu yüzden severity_weights'te en yüksek ağırlığı
-# taşır (bkz. config/settings.yaml content_safety.category_severity).
+# Category definition: Çöltekin, Ç. (2020). "A Corpus of Turkish
+# Offensive Language on Social Media." LREC 2020 — in the OffensEval
+# scheme, a violence threat is treated as the most severe subset of
+# targeted insult, which is why it carries the highest weight in
+# severity_weights (see config/settings.yaml
+# content_safety.category_severity).
 #
-# DÜZELTME: "zarar verece" boşluk içerdiği için hiçbir zaman eşleşmiyordu
-# (bkz. insult.txt'deki aynı hatanın notu). Tek kelimelik köklerle
-# değiştirildi.
+# KNOWN LIMITATION: Threatening language, by its nature, depends more on
+# sentence structure than on any single word ("I will kill him" is a
+# threat; "cancer killed him" or "I killed the boss in the game" is not)
+# — so there is no generally-accepted "threat dictionary" source like
+# LDNOOBW for this category; the roots below are basic violence verbs
+# based on dictionary meaning, and the organization should additionally
+# review them at the sentence/context level.
 #
-# BİLİNEN SINIRLAMA: Tehdit dili doğası gereği tek kelimeden çok cümle
-# yapısına bağlıdır ("onu öldürürüm" tehdit, "kanser onu öldürdü" veya
-# "oyunda karakteri öldürdüm" değildir) — bu yüzden LDNOOBW gibi genel
-# geçer bir "tehdit sözlüğü" kaynağı yoktur; aşağıdaki kökler sözlük
-# anlamına dayanan temel şiddet fiilleridir, kurumun cümle/bağlam
-# düzeyinde ayrıca gözden geçirmesi gerekir.
-öldürecek
-dövecek
-yaralayacak
-vuracak
+# "stab" was deliberately replaced with "assault": a 4-character root
+# collides with common unrelated words (it matched "stability" in this
+# project's own corpus text) and produced a false positive — the same
+# short-root collision risk documented in profanity.txt.
+kill
+beat
+assault
+shoot

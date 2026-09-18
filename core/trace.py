@@ -1,32 +1,33 @@
-"""Pipeline izleme (trace) katmanı.
+"""Pipeline trace layer.
 
-Bir RAG hattı zincirdir: soru alınır, bağlam getirilir, prompt kurulur,
-cevap üretilir, çıktı filtrelenir. Yalnızca son çıktıyı ölçmek **nerede
-bozulduğunu göstermez**: kötü bir cevabın sorumlusu retrieval mı, model
-mi, yoksa filtre mi?
+A RAG pipeline is a chain: a question comes in, context is retrieved, a
+prompt is built, an answer is generated, the output is filtered.
+Measuring only the final output **does not show where it broke down**:
+is a bad answer the fault of retrieval, the model, or the filter?
 
-Bu modül her aşamayı ayrı ayrı kaydeder:
+This module records each stage separately:
 
-* süre ve durum (ok / error / skipped)
-* girdi ve çıktının **özeti** (ham içerik değil)
-* o aşamada tetiklenen guardrail bulguları
-* hata durumunda istisna türü ve kısaltılmış mesaj
+* duration and status (ok / error / skipped)
+* a **summary** of the input and output (not the raw content)
+* the guardrail findings triggered at that stage
+* on error, the exception type and a truncated message
 
-Tasarım kararları:
+Design decisions:
 
-**Ham içerik saklanmaz.** Aşama özetleri uzunluk, hash ve isteğe bağlı
-redaksiyondan geçmiş kısa bir önizlemeden oluşur. Trace kayıtları
-paylaşılabilir artefaktlardır; ham model çıktısını içlerine yazmak, PII
-sızıntısını ölçmek yerine çoğaltmak olurdu.
+**Raw content is never stored.** Stage summaries consist of a short
+preview that has gone through length capping, hashing, and optional
+redaction. Trace records are shareable artifacts; writing raw model
+output into them would multiply the PII leak instead of measuring it.
 
-**Kontrol karakterleri temizlenir.** Model çıktısı düşmanca kabul edilir;
-önizlemeye giren metin log satırı bölemez (CWE-117).
+**Control characters are stripped.** Model output is treated as
+adversarial; text entering the preview must not be able to split a log
+line (CWE-117).
 
-**core paketi analiz modüllerine bağımlı değildir.** Redaksiyon işlevi
-dışarıdan enjekte edilir (``redactor`` parametresi), böylece bağımlılık
-yönü tek yönlü kalır.
+**The core package does not depend on the analysis modules.** The
+redaction function is injected from outside (the ``redactor``
+parameter), so the dependency direction stays one-way.
 
-Kullanım::
+Usage::
 
     trace = PipelineTrace(pipeline="rag", model_name="gpt4")
     with trace.stage("retrieval") as stage:
@@ -58,15 +59,15 @@ Redactor = Callable[[str], str]
 
 
 def _clean(text: str) -> str:
-    """Kontrol karakterlerini boşluğa çevirir (CWE-117)."""
+    """Converts control characters to spaces (CWE-117)."""
     return "".join(" " if ch in "\r\n\t" or ord(ch) < 32 else ch for ch in text)
 
 
 def summarize(value: Any, redactor: Redactor | None = None) -> dict[str, Any]:
-    """Bir aşama girdisini/çıktısını ham içerik saklamadan özetler.
+    """Summarizes a stage's input/output without storing the raw content.
 
-    Hash, aynı girdinin farklı koşularda tekrar edip etmediğini
-    karşılaştırmayı sağlar; önizleme ise hata ayıklama içindir.
+    The hash makes it possible to compare whether the same input repeats
+    across different runs; the preview is for debugging.
     """
     if value is None:
         return {"type": "none", "length": 0}
@@ -89,7 +90,7 @@ def summarize(value: Any, redactor: Redactor | None = None) -> dict[str, Any]:
         try:
             preview = redactor(preview)
         except Exception:
-            preview = "[redaksiyon basarisiz]"
+            preview = "[redaction failed]"
 
     summary: dict[str, Any] = {
         "type": kind,
@@ -104,7 +105,7 @@ def summarize(value: Any, redactor: Redactor | None = None) -> dict[str, Any]:
 
 @dataclass
 class StageRecord:
-    """Tek bir pipeline aşamasının kaydı."""
+    """The record for a single pipeline stage."""
 
     name: str
     index: int
@@ -120,11 +121,11 @@ class StageRecord:
 
     @property
     def finding_count(self) -> int:
-        """Bu aşamada tetiklenen toplam guardrail bulgusu sayısı."""
+        """Total number of guardrail findings triggered at this stage."""
         return sum(len(items) for items in self.findings.values())
 
     def to_dict(self) -> dict[str, Any]:
-        """Serileştirilebilir sözlük gösterimi."""
+        """A serializable dict representation."""
         return {
             "name": self.name,
             "index": self.index,
@@ -142,28 +143,29 @@ class StageRecord:
 
 
 class StageHandle:
-    """``with trace.stage(...)`` bloğu içinde kullanılan yazma arayüzü."""
+    """The write interface used inside a ``with trace.stage(...)`` block."""
 
     def __init__(self, record: StageRecord, redactor: Redactor | None) -> None:
         self._record = record
         self._redactor = redactor
 
     def set_input(self, value: Any, **metrics: float) -> None:
-        """Aşamanın girdisini özetler."""
+        """Summarizes the stage's input."""
         self._record.input_summary = summarize(value, self._redactor)
         self._record.metrics.update({k: float(v) for k, v in metrics.items()})
 
     def set_output(self, value: Any, **metrics: float) -> None:
-        """Aşamanın çıktısını özetler."""
+        """Summarizes the stage's output."""
         self._record.output_summary = summarize(value, self._redactor)
         self._record.metrics.update({k: float(v) for k, v in metrics.items()})
 
     def add_findings(self, guardrail: str, findings: Sequence[dict[str, Any]]) -> None:
-        """Bu aşamada tetiklenen guardrail bulgularını ekler.
+        """Adds the guardrail findings triggered at this stage.
 
-        Girdi guardrail'i (kullanıcı sorusundaki injection/küfür) ve çıktı
-        guardrail'i (üretilen cevaptaki ihlal) ayrı ayrı kaydedilir; bu
-        ayrım olmadan riskin nereden geldiği anlaşılamaz.
+        The input guardrail (injection/profanity in the user's question)
+        and the output guardrail (a violation in the generated answer)
+        are recorded separately; without this distinction, where the
+        risk came from cannot be determined.
         """
         if not findings:
             return
@@ -171,17 +173,17 @@ class StageHandle:
         bucket.extend(dict(item) for item in findings)
 
     def add_metrics(self, **metrics: float) -> None:
-        """Aşamaya özgü sayısal metrik ekler (ör. getirilen chunk sayısı)."""
+        """Adds stage-specific numeric metrics (e.g. number of chunks retrieved)."""
         self._record.metrics.update({k: float(v) for k, v in metrics.items()})
 
     def mark_skipped(self, reason: str = "") -> None:
-        """Aşamayı atlanmış olarak işaretler."""
+        """Marks the stage as skipped."""
         self._record.status = "skipped"
         self._record.error_message = reason[:MAX_ERROR_CHARS]
 
 
 class PipelineTrace:
-    """Bir sorgunun pipeline boyunca izini tutar."""
+    """Holds the trace of a query through the pipeline."""
 
     def __init__(
         self,
@@ -203,10 +205,11 @@ class PipelineTrace:
 
     @contextmanager
     def stage(self, name: str) -> Iterator[StageHandle]:
-        """Bir aşamayı ölçer; istisnayı kaydeder ve yeniden yükseltir.
+        """Times a stage; records and re-raises any exception.
 
-        İstisna yutulmaz: pipeline'ın gerçekten kırıldığı durumda çağıran
-        katman haberdar olmalıdır. Trace yalnızca *kaydeder*.
+        The exception is not swallowed: the calling layer must be
+        notified when the pipeline is genuinely broken. Trace only
+        *records*.
         """
         record = StageRecord(
             name=name,
@@ -224,7 +227,7 @@ class PipelineTrace:
             record.error_message = _clean(str(exc))[:MAX_ERROR_CHARS]
             record.duration_sec = time.perf_counter() - started
             logger.warning(
-                "pipeline asamasi hata verdi",
+                "pipeline stage raised an error",
                 extra={
                     "trace_id": self.trace_id,
                     "stage": name,
@@ -236,7 +239,7 @@ class PipelineTrace:
         else:
             record.duration_sec = time.perf_counter() - started
             logger.debug(
-                "pipeline asamasi tamamlandi",
+                "pipeline stage completed",
                 extra={
                     "trace_id": self.trace_id,
                     "stage": name,
@@ -246,45 +249,45 @@ class PipelineTrace:
             )
 
     def finish(self) -> PipelineTrace:
-        """İzlemeyi kapatır ve toplam süreyi sabitler."""
+        """Closes the trace and fixes the total duration."""
         if not self._finished:
             self.total_duration_sec = time.perf_counter() - self._start
             self._finished = True
         return self
 
     # ----------------------------------------------------------------- #
-    # Türetilmiş göstergeler
+    # Derived indicators
     # ----------------------------------------------------------------- #
     @property
     def failed_stages(self) -> list[str]:
-        """Hata veren aşamaların adları."""
+        """Names of the stages that errored."""
         return [stage.name for stage in self.stages if stage.status == "error"]
 
     @property
     def total_findings(self) -> int:
-        """Tüm aşamalardaki guardrail bulgusu sayısı."""
+        """Total guardrail finding count across all stages."""
         return sum(stage.finding_count for stage in self.stages)
 
     def slowest_stage(self) -> str:
-        """En uzun süren aşamanın adı (darboğaz tespiti)."""
+        """The name of the longest-running stage (bottleneck detection)."""
         if not self.stages:
             return ""
         return max(self.stages, key=lambda stage: stage.duration_sec).name
 
     def stage_durations(self) -> dict[str, float]:
-        """Aşama adı → süre eşlemesi."""
+        """Stage name -> duration mapping."""
         return {stage.name: round(stage.duration_sec, 4) for stage in self.stages}
 
     def findings_by_stage(self) -> dict[str, int]:
-        """Aşama adı → bulgu sayısı eşlemesi.
+        """Stage name -> finding count mapping.
 
-        Riskin hangi aşamada ortaya çıktığını gösterir: girdide yakalanan
-        bir injection ile çıktıda yakalanan bir ihlal aynı şey değildir.
+        Shows at which stage a risk surfaced: an injection caught on
+        input and a violation caught on output are not the same thing.
         """
         return {stage.name: stage.finding_count for stage in self.stages}
 
     def to_dict(self) -> dict[str, Any]:
-        """Serileştirilebilir tam gösterim."""
+        """A serializable full representation."""
         return {
             "trace_id": self.trace_id,
             "pipeline": self.pipeline,
@@ -301,11 +304,12 @@ class PipelineTrace:
 
 
 def aggregate(traces: Sequence[PipelineTrace]) -> dict[str, Any]:
-    """Birden çok izlemeden pipeline sağlık özeti çıkarır.
+    """Derives a pipeline health summary from multiple traces.
 
-    Tek bir sorgunun izi hata ayıklama içindir; **toplu görünüm** ise
-    pipeline'ın sistematik olarak nerede bozulduğunu ve nerede yavaşladığını
-    gösterir. Motor bunu her model için hesaplayıp sonuca yazar.
+    A single query's trace is for debugging; the **aggregate view**
+    instead shows where the pipeline systematically breaks down and
+    where it slows down. The engine computes this per model and writes
+    it to the result.
     """
     if not traces:
         return {

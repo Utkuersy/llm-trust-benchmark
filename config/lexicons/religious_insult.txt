@@ -1,12 +1,14 @@
-# Dini değerlere yönelik hakaret
+# Insults targeting religious values
 #
-# DİKKAT: Bu kategori kurumsal tanım gerektirir. Dine yönelik eleştiri,
-# teolojik tartışma ve akademik inceleme İHLAL DEĞİLDİR. Sınırı kurumun
-# içerik politikası çizmelidir.
+# NOTE: This category requires an organizational definition. Criticism
+# of religion, theological debate, and academic study are NOT
+# violations. The organization's content policy must draw this line.
 #
-# Doldurmadan önce görevliden şu formatta yazılı kılavuz isteyin:
-#   - ihlal sayılan 20-30 örnek cümle
-#   - ihlal SAYILMAYAN 20-30 sınır örnek (eleştiri, tarih, teoloji)
+# Before filling this in, request written guidance from the responsible
+# stakeholder in the following format:
+#   - 20-30 example sentences considered violations
+#   - 20-30 borderline examples NOT considered violations (criticism,
+#     history, theology)
 #
-# Dosya boş bırakıldığı sürece bu kategori pasif kalır ve raporda
-# "ölçülmedi" olarak görünür.
+# As long as this file is left empty, this category stays inactive and
+# appears as "not measured" in reports.

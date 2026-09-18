@@ -1,12 +1,12 @@
-"""Benchmark sonuç şemaları (Pydantic v2).
+"""Benchmark result schemas (Pydantic v2).
 
-Her analiz modülü buradaki bir modeli döndürür; orkestratörler
-(``benchmark_engine.py`` / ``llm_benchmark_engine.py``) bunları birleştirip
-``core/storage.py`` üzerinden SQLite'a ve MLflow'a yazar.
+Every analysis module returns a model defined here; the orchestrators
+(``benchmark_engine.py`` / ``llm_benchmark_engine.py``) combine them and
+write them to SQLite and MLflow via ``core/storage.py``.
 
-Tüm alt sonuçlarda ortak sözleşme:
-    * ``score``  : 0-100 arası normalize edilmiş alt puan
-    * ``status`` : analiz adımının teknik durumu (ok/error/skipped/timeout)
+The common contract across all sub-results:
+    * ``score``  : a normalized sub-score in the 0-100 range
+    * ``status`` : the technical status of the analysis step (ok/error/skipped/timeout)
 """
 
 from __future__ import annotations
@@ -19,19 +19,19 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 def utcnow() -> datetime:
-    """Zaman damgası üretir (UTC, timezone-aware)."""
+    """Produces a timestamp (UTC, timezone-aware)."""
     return datetime.now(UTC)
 
 
 class Track(StrEnum):
-    """Değerlendirme hattı."""
+    """The evaluation track."""
 
     A = "A"  # Code Trustworthiness
     B = "B"  # LLM/RAG Trustworthiness
 
 
 class Status(StrEnum):
-    """Bir analiz adımının teknik sonucu."""
+    """The technical outcome of an analysis step."""
 
     OK = "ok"
     ERROR = "error"
@@ -40,7 +40,7 @@ class Status(StrEnum):
 
 
 class BaseResult(BaseModel):
-    """Tüm alt sonuçların ortak tabanı."""
+    """The common base for all sub-results."""
 
     model_config = ConfigDict(protected_namespaces=())
 
@@ -54,7 +54,7 @@ class BaseResult(BaseModel):
 # Track A
 # --------------------------------------------------------------------------- #
 class CodeQualityResult(BaseResult):
-    """Pylint + Radon çıktıları."""
+    """Pylint + Radon output."""
 
     pylint_score: float = 0.0  # 0-10
     error_count: int = 0
@@ -70,7 +70,7 @@ class CodeQualityResult(BaseResult):
 
 
 class CorrectnessResult(BaseResult):
-    """pytest çalıştırma sonucu."""
+    """A pytest run result."""
 
     total: int = 0
     passed: int = 0
@@ -82,7 +82,7 @@ class CorrectnessResult(BaseResult):
 
 
 class StaticSecurityResult(BaseResult):
-    """Bandit statik güvenlik taraması."""
+    """A Bandit static security scan."""
 
     high: int = 0
     medium: int = 0
@@ -92,7 +92,7 @@ class StaticSecurityResult(BaseResult):
 
 
 class DependencySecurityResult(BaseResult):
-    """pip-audit bağımlılık taraması."""
+    """A pip-audit dependency scan."""
 
     packages_scanned: int = 0
     vulnerable_packages: int = 0
@@ -101,7 +101,7 @@ class DependencySecurityResult(BaseResult):
 
 
 class RuntimeSecurityResult(BaseResult):
-    """Sandbox içinde çalıştırma sonucu."""
+    """The result of running inside the sandbox."""
 
     executed: bool = False
     exit_code: int | None = None
@@ -118,7 +118,7 @@ class RuntimeSecurityResult(BaseResult):
 
 
 class TrackAResult(BaseModel):
-    """Bir AI model kod klasörü için birleşik Track A sonucu."""
+    """The combined Track A result for an AI model's code folder."""
 
     model_config = ConfigDict(protected_namespaces=())
 
@@ -144,7 +144,7 @@ class TrackAResult(BaseModel):
 # Track B
 # --------------------------------------------------------------------------- #
 class RetrievalResult(BaseResult):
-    """Retrieval kalitesi metrikleri."""
+    """Retrieval quality metrics."""
 
     context_precision: float = 0.0
     context_recall: float = 0.0
@@ -154,7 +154,7 @@ class RetrievalResult(BaseResult):
 
 
 class GenerationQualityResult(BaseResult):
-    """Üretim kalitesi (faithfulness / relevance)."""
+    """Generation quality (faithfulness / relevance)."""
 
     faithfulness: float = 0.0
     answer_relevance: float = 0.0
@@ -165,7 +165,7 @@ class GenerationQualityResult(BaseResult):
 
 
 class InjectionResult(BaseResult):
-    """Prompt injection dayanıklılığı."""
+    """Prompt injection resistance."""
 
     scenarios_run: int = 0
     scenarios_failed: int = 0
@@ -175,7 +175,7 @@ class InjectionResult(BaseResult):
 
 
 class PiiLeakageResult(BaseResult):
-    """Cevaplarda hassas veri sızıntısı."""
+    """Sensitive data leakage in answers."""
 
     answers_scanned: int = 0
     total_hits: int = 0
@@ -184,7 +184,7 @@ class PiiLeakageResult(BaseResult):
 
 
 class PoisoningResult(BaseResult):
-    """Veri zehirlenmesi dayanıklılığı."""
+    """Data poisoning resistance."""
 
     poisoned_docs: int = 0
     queries_run: int = 0
@@ -195,7 +195,7 @@ class PoisoningResult(BaseResult):
 
 
 class ContentSafetyResult(BaseResult):
-    """Zararlı içerik taraması (küfür, hakaret, dini saldırı, tehdit, cinsel)."""
+    """Harmful content scanning (profanity, insults, religious attacks, threats, sexual content)."""
 
     answers_scanned: int = 0
     flagged_answers: int = 0
@@ -210,7 +210,7 @@ class ContentSafetyResult(BaseResult):
 
 
 class MathEvalResult(BaseResult):
-    """Matematik yetenek değerlendirmesi."""
+    """Math capability evaluation."""
 
     problems_total: int = 0
     problems_evaluated: int = 0
@@ -223,16 +223,16 @@ class MathEvalResult(BaseResult):
 
 
 class EvaluationResult(BaseModel):
-    """Bir LLM/RAG konfigürasyonu için birleşik değerlendirme sonucu.
+    """The combined evaluation result for an LLM/RAG configuration.
 
-    Yedi boyut üç ISO/IEC 25010 karakteristiğine dağılır:
+    The seven dimensions are distributed across three ISO/IEC 25010 characteristics:
         Safety              -> content_safety
         Security            -> injection, pii, poisoning
         Functional          -> retrieval, generation, math
 
-    ``pipeline`` alanı, aşama bazlı izleme özetini taşır: hangi aşamada
-    ne kadar süre geçti, nerede hata oldu, guardrail bulguları hangi
-    aşamada tetiklendi.
+    The ``pipeline`` field carries the stage-by-stage trace summary: how
+    long each stage took, where an error occurred, and at which stage
+    guardrail findings were triggered.
     """
 
     model_config = ConfigDict(protected_namespaces=())
@@ -256,6 +256,6 @@ class EvaluationResult(BaseModel):
     weights: dict[str, float] = Field(default_factory=dict)
 
 
-# Track A kaldırıldıktan sonra tek değerlendirme hattı kaldı. Eski adı,
-# mevcut depolama katmanını kırmamak için takma ad olarak korunuyor.
+# After Track A was removed, a single evaluation track remains. The old
+# name is kept as an alias so the existing storage layer doesn't break.
 TrackBResult = EvaluationResult

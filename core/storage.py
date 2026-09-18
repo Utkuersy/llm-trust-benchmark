@@ -1,21 +1,21 @@
-"""SQLite depolama katmanı — Track A ve Track B'nin ortak sonuç deposu.
+"""The SQLite storage layer — the shared result store for Track A and Track B.
 
-Şema (``db/benchmark.db``):
+Schema (``db/benchmark.db``):
 
 ``runs``
-    Her benchmark koşusunun başlık kaydı (track, model, trust score, ham JSON).
+    A header record for every benchmark run (track, model, trust score, raw JSON).
 ``track_a_results``
-    Track A alt metriklerinin düzleştirilmiş hali (dashboard sorguları için).
+    A flattened form of Track A's sub-metrics (for dashboard queries).
 ``track_b_results``
-    Track B alt metriklerinin düzleştirilmiş hali.
+    A flattened form of Track B's sub-metrics.
 ``findings``
-    Her iki track'in ürettiği bulgular (Bandit, CVE, injection, PII...).
+    Findings produced by either track (Bandit, CVE, injection, PII...).
 
-Tasarım kararları:
-    * Yazmalar tek transaction içinde, ``INSERT OR REPLACE`` ile idempotenttir.
-    * Tüm sorgular parametrelidir (SQL enjeksiyonu yüzeyi yok).
-    * ``payload`` sütunu tam Pydantic modelini JSON olarak saklar; şema
-      genişlediğinde geçmiş koşular kaybolmaz.
+Design decisions:
+    * Writes are idempotent, using ``INSERT OR REPLACE`` inside a single transaction.
+    * All queries are parameterized (no SQL-injection surface).
+    * The ``payload`` column stores the full Pydantic model as JSON; when
+      the schema expands, past runs are not lost.
 """
 
 from __future__ import annotations
@@ -140,7 +140,7 @@ CREATE INDEX IF NOT EXISTS idx_findings_category ON findings(category);
 
 
 def resolve_db_path(settings: Settings | None = None) -> Path:
-    """Konfigürasyondaki veritabanı yolunu mutlaklaştırır ve klasörü oluşturur."""
+    """Resolves the database path from configuration to an absolute path and creates its folder."""
     settings = settings or get_settings()
     path = settings.paths.db_path
     if not path.is_absolute():
@@ -151,7 +151,7 @@ def resolve_db_path(settings: Settings | None = None) -> Path:
 
 @contextmanager
 def connect(settings: Settings | None = None) -> Iterator[sqlite3.Connection]:
-    """Yapılandırılmış bir SQLite bağlantısı açar (foreign key açık)."""
+    """Opens a configured SQLite connection (with foreign keys on)."""
     path = resolve_db_path(settings)
     connection = sqlite3.connect(path, timeout=30.0)
     connection.row_factory = sqlite3.Row
@@ -167,8 +167,8 @@ def connect(settings: Settings | None = None) -> Iterator[sqlite3.Connection]:
 
 
 _ADDED_COLUMNS: dict[str, list[tuple[str, str]]] = {
-    # Şema v3'te eklenen sütunlar. Mevcut bir veritabanı CREATE TABLE
-    # IF NOT EXISTS ile güncellenmez; eksik sütunlar ALTER TABLE ile eklenir.
+    # Columns added in schema v3. An existing database is not updated by
+    # CREATE TABLE IF NOT EXISTS; missing columns are added via ALTER TABLE.
     "track_b_results": [
         ("content_safety_score", "REAL DEFAULT 0"),
         ("content_flagged_rate", "REAL DEFAULT 0"),
@@ -184,7 +184,7 @@ _ADDED_COLUMNS: dict[str, list[tuple[str, str]]] = {
 
 
 def _migrate(connection: sqlite3.Connection) -> list[str]:
-    """Eksik sütunları ekler; eski veritabanları veri kaybı olmadan güncellenir."""
+    """Adds missing columns; older databases are upgraded without data loss."""
     applied: list[str] = []
     for table, columns in _ADDED_COLUMNS.items():
         existing = {
@@ -201,18 +201,18 @@ def _migrate(connection: sqlite3.Connection) -> list[str]:
 
 
 def init_db(settings: Settings | None = None) -> Path:
-    """Şemayı oluşturur, gerekirse göç uygular (idempotent)."""
+    """Creates the schema, applying migrations if needed (idempotent)."""
     path = resolve_db_path(settings)
     with connect(settings) as connection:
         connection.executescript(_SCHEMA)
         migrated = _migrate(connection)
         if migrated:
-            logger.info("sema gocu uygulandi", extra={"columns": migrated})
+            logger.info("schema migration applied", extra={"columns": migrated})
         connection.execute(
             "INSERT OR REPLACE INTO schema_meta(key, value) VALUES (?, ?)",
             ("schema_version", str(SCHEMA_VERSION)),
         )
-    logger.info("veritabani hazir", extra={"db_path": str(path), "schema": SCHEMA_VERSION})
+    logger.info("database ready", extra={"db_path": str(path), "schema": SCHEMA_VERSION})
     return path
 
 
@@ -282,7 +282,7 @@ def save_track_a(
     mlflow_run_id: str | None = None,
     settings: Settings | None = None,
 ) -> None:
-    """Track A sonucunu runs + track_a_results + findings tablolarına yazar."""
+    """Writes a Track A result into the runs + track_a_results + findings tables."""
     created_at = result.created_at.isoformat()
     with connect(settings) as connection:
         _insert_run(
@@ -335,7 +335,7 @@ def save_track_a(
         )
         _insert_findings(connection, result.run_id, Track.A, result.model_name, findings or [])
     logger.info(
-        "track A sonucu kaydedildi",
+        "track A result saved",
         extra={"run_id": result.run_id, "model": result.model_name, "score": result.trust_score},
     )
 
@@ -346,7 +346,7 @@ def save_track_b(
     mlflow_run_id: str | None = None,
     settings: Settings | None = None,
 ) -> None:
-    """Track B sonucunu runs + track_b_results + findings tablolarına yazar."""
+    """Writes a Track B result into the runs + track_b_results + findings tables."""
     created_at = result.created_at.isoformat()
     with connect(settings) as connection:
         _insert_run(
@@ -423,13 +423,13 @@ def save_track_b(
         )
         _insert_findings(connection, result.run_id, Track.B, result.model_name, findings or [])
     logger.info(
-        "track B sonucu kaydedildi",
+        "track B result saved",
         extra={"run_id": result.run_id, "model": result.model_name, "score": result.trust_score},
     )
 
 
 # --------------------------------------------------------------------------- #
-# Okuma yardımcıları (dashboard için)
+# Read helpers (for the dashboard)
 # --------------------------------------------------------------------------- #
 def _rows_to_dicts(rows: list[sqlite3.Row]) -> list[dict[str, Any]]:
     return [dict(row) for row in rows]
@@ -437,7 +437,7 @@ def _rows_to_dicts(rows: list[sqlite3.Row]) -> list[dict[str, Any]]:
 
 def fetch_runs(track: Track | str | None = None, limit: int = 500,
                settings: Settings | None = None) -> list[dict[str, Any]]:
-    """Koşu başlıklarını (en yeni önce) döndürür."""
+    """Returns run headers (newest first)."""
     track_value = track.value if isinstance(track, Track) else track
     with connect(settings) as connection:
         if track_value:
@@ -453,7 +453,7 @@ def fetch_runs(track: Track | str | None = None, limit: int = 500,
 
 
 def fetch_track_a(limit: int = 500, settings: Settings | None = None) -> list[dict[str, Any]]:
-    """Track A düzleştirilmiş sonuçları."""
+    """Flattened Track A results."""
     with connect(settings) as connection:
         rows = connection.execute(
             "SELECT * FROM track_a_results ORDER BY created_at DESC LIMIT ?", (limit,)
@@ -462,7 +462,7 @@ def fetch_track_a(limit: int = 500, settings: Settings | None = None) -> list[di
 
 
 def fetch_track_b(limit: int = 500, settings: Settings | None = None) -> list[dict[str, Any]]:
-    """Track B düzleştirilmiş sonuçları."""
+    """Flattened Track B results."""
     with connect(settings) as connection:
         rows = connection.execute(
             "SELECT * FROM track_b_results ORDER BY created_at DESC LIMIT ?", (limit,)
@@ -471,11 +471,12 @@ def fetch_track_b(limit: int = 500, settings: Settings | None = None) -> list[di
 
 
 def delete_model(model_name: str, settings: Settings | None = None) -> int:
-    """Bir modele ait tüm koşu kayıtlarını siler.
+    """Deletes all run records belonging to a model.
 
-    ``runs`` satırları silinince ``track_a_results``, ``track_b_results``
-    ve ``findings`` tablolarındaki ilgili satırlar ``ON DELETE CASCADE``
-    ile otomatik silinir (bkz. ``connect()`` — foreign_keys açık).
+    When ``runs`` rows are deleted, the corresponding rows in
+    ``track_a_results``, ``track_b_results``, and ``findings`` are
+    automatically deleted via ``ON DELETE CASCADE`` (see ``connect()``
+    — foreign_keys is on).
     """
     with connect(settings) as connection:
         cursor = connection.execute("DELETE FROM runs WHERE model_name = ?", (model_name,))
@@ -486,7 +487,7 @@ def fetch_findings(
     run_id: str | None = None, track: Track | str | None = None,
     limit: int = 2000, settings: Settings | None = None,
 ) -> list[dict[str, Any]]:
-    """Bulguları filtreli olarak döndürür."""
+    """Returns findings, optionally filtered."""
     clauses: list[str] = []
     params: list[Any] = []
     if run_id:
@@ -498,9 +499,10 @@ def fetch_findings(
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     params.append(limit)
     with connect(settings) as connection:
-        # `where` yalnizca sabit sorgu parcalarindan ("run_id = ?", "track = ?")
-        # olusur; gercek degerler asagida params ile parametreli baglanir,
-        # dogrudan SQL metnine hicbir kullanici girdisi enjekte edilmez.
+        # `where` is built only from fixed query fragments ("run_id = ?",
+        # "track = ?"); the actual values are bound below via `params` as
+        # parameters — no user input is ever injected directly into the
+        # SQL text.
         rows = connection.execute(
             f"SELECT * FROM findings {where} ORDER BY id DESC LIMIT ?",  # nosec B608
             params,
@@ -511,7 +513,7 @@ def fetch_findings(
 def latest_run_payload(
     track: Track | str, model_name: str, settings: Settings | None = None
 ) -> dict[str, Any] | None:
-    """Bir model için en son koşunun tam JSON payload'unu döndürür."""
+    """Returns the full JSON payload of the latest run for a model."""
     track_value = track.value if isinstance(track, Track) else track
     with connect(settings) as connection:
         row = connection.execute(
@@ -531,4 +533,4 @@ def latest_run_payload(
 
 
 if __name__ == "__main__":
-    print(f"veritabani hazirlandi: {init_db()}")
+    print(f"database prepared: {init_db()}")

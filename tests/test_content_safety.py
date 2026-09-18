@@ -1,29 +1,30 @@
-"""İçerik güvenliği tarayıcısı — işlevsel test paketi.
+"""Content safety scanner — functional test suite.
 
-Yöntem, Röttger vd. (2021) HateCheck çalışmasından uyarlanmıştır: model
-genel bir test kümesinde ortalama başarı ile değil, **her biri tek bir
-davranışı sınayan işlevsel testlerle** ölçülür. HateCheck 29 işlevsellik
-altında 3.728 vaka tanımlar ve kritik olarak her vakaya "ihlal / ihlal
-değil" altın etiketi verir; ihlal olmayan karşıt vakalar (contrast cases)
-olmadan yanlış pozitif oranı ölçülemez.
+The method is adapted from Röttger et al. (2021)'s HateCheck study: a
+model is measured not by average accuracy on a generic test set, but by
+**functional tests that each probe a single behavior**. HateCheck defines
+3,728 cases across 29 functional test types and, critically, gives every
+case a "violation / not a violation" gold label; without non-violating
+contrast cases, the false-positive rate cannot be measured.
 
     Röttger, P., Vidgen, B., Nguyen, D., Waseem, Z., Margetts, H., &
     Pierrehumbert, J. (2021). HateCheck: Functional Tests for Hate Speech
     Detection Models. ACL-IJCNLP 2021, 41-58.
     https://doi.org/10.18653/v1/2021.acl-long.4
 
-Kaçırma (evasion) testlerinin dayanağı Hosseini vd. (2017): Perspective
-API'nin, küfürlü kelimelerin yanlış yazılması veya harf araya noktalama
-konulmasıyla atlatılabildiği gösterilmiştir ("idiot" → "idiiot" toksisite
-skorunu %84'ten %20'ye düşürmüştür). Aynı çalışma olumsuzlama duyarlılığı
-eksikliğini de raporlar.
+The basis for the evasion tests is Hosseini et al. (2017): they showed
+that Perspective API can be evaded by misspelling profane words or by
+inserting punctuation between letters ("idiot" -> "idiiot" dropped the
+toxicity score from 84% to 20%). The same study also reports a lack of
+negation sensitivity.
 
     Hosseini, H., Kannan, S., Zhang, B., & Poovendran, R. (2017).
     Deceiving Google's Perspective API Built for Detecting Toxic Comments.
     arXiv:1702.08138.
 
-Bu dosyadaki testler proje sözlüğüne bağımlı olmamak için kendi izole
-sözlüğünü kurar; kurumun gerçek sözlüğü değişse de testler geçerli kalır.
+The tests in this file build their own isolated lexicon so they do not
+depend on the project's real lexicon; they remain valid even if the
+organization's actual lexicon changes.
 """
 
 from __future__ import annotations
@@ -32,170 +33,173 @@ import pytest
 
 from llm_security.content_safety_scan import Lexicon, normalize, scan_text
 
-# İzole test sözlüğü. Kasıtlı olarak hakaret düzeyinde ama kaba olmayan
-# terimler seçildi; amaç mekanizmayı sınamak, terim listesi doğrulamak değil.
-TEST_ROOTS = ("aptal", "salak", "gerizekal")
+# Isolated test lexicon. Deliberately chosen to be insult-level but not
+# crude language; the goal is to test the mechanism, not validate a term
+# list.
+TEST_ROOTS = ("idiot", "moron", "stupid")
 TEST_LEXICON = Lexicon("profanity_test", "HIGH", TEST_ROOTS)
 LEXICONS = [TEST_LEXICON]
 
 
 def categories(text: str) -> list[str]:
-    """Metindeki bulguların eşleşen köklerini döndürür."""
+    """Returns the matched roots for the findings in a text."""
     return [finding["matched_root"] for finding in scan_text(text, LEXICONS)]
 
 
 def flagged(text: str) -> bool:
-    """Metin en az bir ihlal üretiyor mu?"""
+    """Does the text produce at least one violation?"""
     return bool(scan_text(text, LEXICONS))
 
 
 # --------------------------------------------------------------------------- #
-# F1 — Düz ihlal tespiti (HateCheck: derogation)
+# F1 — Plain violation detection (HateCheck: derogation)
 # --------------------------------------------------------------------------- #
 @pytest.mark.parametrize(
     "text",
     [
-        "Sen tam bir aptalsın.",
-        "Bu ne salak bir öneri.",
-        "Gerizekalı gibi davranıyorsun.",
+        "You are a complete idiot.",
+        "What a moronic suggestion.",
+        "You're acting stupid.",
     ],
 )
 def test_f1_plain_violation_detected(text: str) -> None:
-    """Açık ihlaller yakalanmalı."""
-    assert flagged(text), f"ihlal yakalanmadi: {text}"
+    """Plain violations must be caught."""
+    assert flagged(text), f"violation not caught: {text}"
 
 
 # --------------------------------------------------------------------------- #
-# F2 — Kaçırma teknikleri (Hosseini vd. 2017)
+# F2 — Evasion techniques (Hosseini et al. 2017)
 # --------------------------------------------------------------------------- #
 @pytest.mark.parametrize(
     "text,technique",
     [
-        ("Sen bir @pt@lsın.", "harf degistirme (leetspeak)"),
-        ("Sen bir a.p.t.a.l.s.ı.n", "harf arasi noktalama"),
-        ("Sen bir a p t a l sın", "harf arasi bosluk"),
-        ("Sen bir aptaaaalsın", "harf tekrari"),
-        ("SEN BİR APTALSIN", "buyuk harf"),
-        ("Sen bir s@l@ksın", "karisik degistirme"),
+        ("You are an 1d10t.", "character substitution (leetspeak)"),
+        ("You are an i.d.i.o.t", "inter-letter punctuation"),
+        ("You are an i d i o t", "inter-letter spacing"),
+        ("You are an idiooot", "letter repetition"),
+        ("YOU ARE AN IDIOT", "uppercase"),
+        ("You are a m0r0n", "mixed substitution"),
     ],
 )
 def test_f2_evasion_techniques_detected(text: str, technique: str) -> None:
-    """Kaçırma teknikleri normalize edilip yakalanmalı."""
-    assert flagged(text), f"kacirma teknigi atlatti: {technique} -> {text}"
+    """Evasion techniques must be normalized and caught."""
+    assert flagged(text), f"evasion technique bypassed detection: {technique} -> {text}"
 
 
 # --------------------------------------------------------------------------- #
-# F3 — Türkçe biçimbilim (eklemeli dil)
+# F3 — Suffix morphology
 # --------------------------------------------------------------------------- #
 @pytest.mark.parametrize(
     "text",
     [
-        "aptal",
-        "aptallar",
-        "aptalca",
-        "aptallık",
-        "salaklar",
-        "salakça",
+        "idiot",
+        "idiots",
+        "idiotic",
+        "idiotically",
+        "morons",
+        "stupidly",
     ],
 )
-def test_f3_turkish_morphology_detected(text: str) -> None:
-    """Kök + ek türevleri yakalanmalı (tam kelime eşleşmesi yetersizdir)."""
-    assert flagged(text), f"ek almis tureve takildi: {text}"
+def test_f3_morphology_detected(text: str) -> None:
+    """Root + suffix derivatives must be caught (exact word matching is insufficient)."""
+    assert flagged(text), f"suffixed derivative slipped through: {text}"
 
 
 def test_f3_excessive_suffix_not_matched() -> None:
-    """Kök + 6 karakterden uzun ek eşleşmemeli — aşırı genelleme koruması."""
-    assert not flagged("aptalxyzabcdefgh")
+    """Root + suffix longer than 6 characters should not match — over-generalization guard."""
+    assert not flagged("idiotxyzabcdefgh")
 
 
 # --------------------------------------------------------------------------- #
-# F4 — İhlal OLMAYAN karşıt vakalar (HateCheck contrast cases)
+# F4 — Non-violating contrast cases (HateCheck contrast cases)
 # --------------------------------------------------------------------------- #
 @pytest.mark.parametrize(
     "text,reason",
     [
-        ("Parolalar en az 14 karakter olmalıdır.", "notr kurumsal metin"),
-        ("Müşteri işlem kayıtları 10 yıl saklanır.", "notr politika metni"),
-        ("Bu yaklaşımın teknik gerekçesi zayıf görünüyor.", "nazik elestiri"),
-        ("Kullanıcı davranış analizi yapılmalıdır.", "notr teknik oneri"),
+        ("Passwords must be at least 14 characters long.", "neutral corporate text"),
+        ("Customer transaction records are retained for 10 years.", "neutral policy text"),
+        ("The technical rationale for this approach seems weak.", "polite criticism"),
+        ("A user behavior analysis should be conducted.", "neutral technical suggestion"),
     ],
 )
 def test_f4_non_violating_not_flagged(text: str, reason: str) -> None:
-    """İhlal olmayan metinler işaretlenmemeli (yanlış pozitif kontrolü)."""
-    assert not flagged(text), f"yanlis pozitif ({reason}): {text}"
+    """Non-violating text must not be flagged (false-positive check)."""
+    assert not flagged(text), f"false positive ({reason}): {text}"
 
 
 @pytest.mark.xfail(
     strict=True,
     reason=(
-        "BİLİNEN SINIRLAMA: sözlük katmanı bağlam duyarlı değildir. Terimin "
-        "akademik, alıntı veya karşı-söylem bağlamında geçmesi ihlal değildir "
-        "ama sözlük bunu ayırt edemez. HateCheck'in 'non-hateful contrast case' "
-        "kategorisine karşılık gelir. Bağlam ayrımı sınıflandırıcı katmanının "
-        "işidir; sözlük tek başına karar mercii olarak kullanılmamalıdır."
+        "KNOWN LIMITATION: the lexicon layer is not context-aware. A term "
+        "appearing in an academic, quoted, or counter-speech context is not "
+        "a violation, but the lexicon cannot tell the difference. This "
+        "corresponds to HateCheck's 'non-hateful contrast case' category. "
+        "Context disambiguation is the classifier layer's job; the lexicon "
+        "must not be used as the sole decision authority."
     ),
 )
 @pytest.mark.parametrize(
     "text",
     [
-        "Aptallık üzerine bir psikoloji makalesi okudum.",
-        "Kullanıcı 'sen aptalsın' yazdığında sistem uyarı vermelidir.",
+        "I read a psychology article about stupidity.",
+        "The system should warn when a user types 'you are an idiot'.",
     ],
 )
 def test_f4_context_dependent_false_positive(text: str) -> None:
-    """Bağlam gerektiren vakalar — şu an yanlış pozitif üretiliyor."""
+    """Cases that require context — currently produce a false positive."""
     assert not flagged(text)
 
 
 def test_f4_short_root_does_not_overmatch() -> None:
-    """Kısa kökler yanlış pozitif üretir; minimum uzunluk eşiği çalışmalı."""
-    short = Lexicon("test", "LOW", ("ap", "sa"))
-    assert len(short) == 0, "4 karakterden kisa kokler sozluge alinmamali"
+    """Short roots produce false positives; the minimum length threshold must hold."""
+    short = Lexicon("test", "LOW", ("id", "mo"))
+    assert len(short) == 0, "roots shorter than 4 characters must not enter the lexicon"
 
 
 # --------------------------------------------------------------------------- #
-# F5 — Olumsuzlama (Hosseini vd. 2017'nin raporladığı zayıflık)
+# F5 — Negation (the weakness reported by Hosseini et al. 2017)
 # --------------------------------------------------------------------------- #
 def test_f5_negation_is_known_limitation() -> None:
-    """Olumsuzlanmış ifade de işaretlenir — bu bilinen bir sınırlamadır.
+    """Negated statements are also flagged — this is a known limitation.
 
-    "aptal değilsin" cümlesi hakaret değildir ama sözlük tabanlı katman
-    bunu ayırt edemez. Test, davranışı *belgelemek* için vardır: sözlük
-    katmanı bağlam duyarlı değildir ve tek başına karar mercii olamaz.
-    Bağlam ayrımı sınıflandırıcı katmanının işidir.
+    "you are not an idiot" is not an insult, but the lexicon-based layer
+    cannot tell the difference. This test exists to *document* the
+    behavior: the lexicon layer is not context-aware and must not be the
+    sole decision authority. Context disambiguation is the classifier
+    layer's job.
     """
-    assert flagged("Sen aptal değilsin, tam tersine çok yeteneklisin."), (
-        "davranis degisti: olumsuzlama artik ayirt ediliyorsa bu testi guncelle"
+    assert flagged("You are not an idiot, quite the opposite, you're very talented."), (
+        "behavior changed: update this test if negation is now disambiguated"
     )
 
 
 # --------------------------------------------------------------------------- #
-# F6 — Normalizasyon birim testleri
+# F6 — Normalization unit tests
 # --------------------------------------------------------------------------- #
 @pytest.mark.parametrize(
     "raw,expected",
     [
-        ("APTAL", "aptal"),
-        ("@pt@l", "aptal"),
-        ("a.p.t.a.l", "aptal"),
-        ("IĞDIR", "ığdır"),
-        ("İSTANBUL", "istanbul"),
+        ("IDIOT", "idiot"),
+        ("1d10t", "idiot"),
+        ("i.d.i.o.t", "idiot"),
+        ("MORON", "moron"),
+        ("StUpId", "stupid"),
     ],
 )
 def test_f6_normalization(raw: str, expected: str) -> None:
-    """Normalizasyon Türkçe büyük/küçük harf kurallarına uymalı."""
+    """Normalization must lowercase and resolve evasion characters correctly."""
     assert normalize(raw) == expected
 
 
 # --------------------------------------------------------------------------- #
-# F7 — Sözlük yüklenmemişse sessizce geçmemeli
+# F7 — An unloaded lexicon must not silently pass as "clean"
 # --------------------------------------------------------------------------- #
 def test_f7_empty_lexicon_produces_no_findings() -> None:
-    """Boş sözlük bulgu üretmez — ama bu 'temiz' anlamına gelmez.
+    """An empty lexicon produces no findings — but that doesn't mean "clean".
 
-    Motor bu durumu ``inactive_categories`` altında raporlamalıdır;
-    bu testin amacı boş sözlüğün çökme değil sessizlik ürettiğini
-    doğrulamaktır.
+    The engine must report this case under ``inactive_categories``; the
+    purpose of this test is to confirm that an empty lexicon produces
+    silence, not a crash.
     """
-    empty = Lexicon("bos", "HIGH", ())
-    assert scan_text("Sen bir aptalsın.", [empty]) == []
+    empty = Lexicon("empty", "HIGH", ())
+    assert scan_text("You are an idiot.", [empty]) == []

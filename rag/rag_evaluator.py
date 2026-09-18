@@ -1,23 +1,25 @@
-"""Track B — Üretim kalitesi değerlendirmesi (faithfulness / answer relevance).
+"""Track B — generation quality evaluation (faithfulness / answer relevance).
 
-İki arka uç:
+Two backends:
 
 ``ragas``
-    Kurulu ve bir LLM sağlayıcısı yapılandırılmışsa RAGAS'ın
-    ``faithfulness`` ve ``answer_relevancy`` metrikleri kullanılır.
+    If installed and an LLM provider is configured, RAGAS's
+    ``faithfulness`` and ``answer_relevancy`` metrics are used.
 
-``heuristic`` (varsayılan fallback)
-    LLM gerektirmeyen, tekrarlanabilir ve maliyetsiz bir yaklaşım:
+``heuristic`` (default fallback)
+    An LLM-free, repeatable, zero-cost approach:
 
-    * **Faithfulness**: cevap cümlelere ayrılır; her cümlenin içerik
-      kelimeleri getirilen bağlamda ne oranda destekleniyor diye bakılır.
-      Ayrıca sayısal iddialar (tarih, yüzde, süre) bağlamda birebir
-      aranır — RAG halüsinasyonlarının en sık görüldüğü yer burasıdır.
-    * **Answer relevance**: cevap ile soru arasındaki içerik kelimesi
-      örtüşmesi + cevabın kaçamak/boş olup olmadığı.
+    * **Faithfulness**: the answer is split into sentences; each
+      sentence's content words are checked against how well they are
+      supported by the retrieved context. Numeric claims (dates,
+      percentages, durations) are also searched for verbatim in the
+      context — this is where RAG hallucinations are most often seen.
+    * **Answer relevance**: content-word overlap between the answer and
+      the question, plus whether the answer is evasive/empty.
 
-Heuristic mod, LLM-as-judge kadar hassas değildir; bu bilinçli bir
-takastır ve sonuçlarda ``backend`` alanıyla şeffaf biçimde raporlanır.
+The heuristic mode is not as precise as an LLM-as-judge; this is a
+deliberate tradeoff, reported transparently via the ``backend`` field in
+the results.
 
 CLI::
 
@@ -46,7 +48,7 @@ _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+|\n+")
 _NUMERIC = re.compile(r"\d+(?:[.,]\d+)?")
 _WORD = re.compile(r"[a-zA-ZçğıöşüÇĞİÖŞÜ0-9]{3,}")
 
-# İçerik taşımayan, örtüşme hesabını şişiren kelimeler.
+# Words that carry no content and would inflate the overlap calculation.
 STOPWORDS = {
     "ve", "veya", "ile", "bir", "bu", "sun", "için", "icin", "olarak", "gibi",
     "daha", "çok", "cok", "ise", "ancak", "ama", "the", "and", "for", "that",
@@ -73,17 +75,17 @@ def _sentences(text: str) -> list[str]:
 
 
 def content_words(text: str) -> set[str]:
-    """İçerik kelimelerini (stopword'süz) döndürür — diğer modüller için genel API."""
+    """Returns content words (stopwords removed) — a public API for other modules."""
     return _content_words(text)
 
 
 def split_sentences(text: str) -> list[str]:
-    """Metni cümlelere böler — diğer modüller için genel API."""
+    """Splits text into sentences — a public API for other modules."""
     return _sentences(text)
 
 
 def sentence_support(sentence: str, context_words: set[str], context_text: str) -> float:
-    """Bir cümlenin bağlam tarafından desteklenme oranını (0-1) hesaplar."""
+    """Computes how well a sentence is supported by the context (0-1)."""
     words = _content_words(sentence)
     if not words:
         return 1.0
@@ -93,14 +95,14 @@ def sentence_support(sentence: str, context_words: set[str], context_text: str) 
     if numbers:
         supported = sum(1 for number in numbers if number in context_text)
         numeric_ratio = supported / len(numbers)
-        # Sayısal iddialar ağır basar: uydurulmuş bir tarih/oran en ciddi
-        # halüsinasyon türüdür.
+        # Numeric claims dominate the score: a fabricated date/rate is
+        # the most serious kind of hallucination.
         return round(0.5 * lexical + 0.5 * numeric_ratio, 4)
     return round(lexical, 4)
 
 
 def heuristic_faithfulness(answer: str, contexts: Sequence[str]) -> float:
-    """Cevabın bağlama sadakatini 0-1 aralığında tahmin eder."""
+    """Estimates the answer's faithfulness to the context, in the 0-1 range."""
     context_text = "\n".join(contexts)
     if not context_text.strip():
         return 0.0
@@ -113,7 +115,7 @@ def heuristic_faithfulness(answer: str, contexts: Sequence[str]) -> float:
 
 
 def heuristic_relevance(question: str, answer: str) -> float:
-    """Cevabın soruyla alaka düzeyini 0-1 aralığında tahmin eder."""
+    """Estimates how relevant the answer is to the question, in the 0-1 range."""
     if not answer.strip():
         return 0.0
     lowered = answer.lower()
@@ -126,7 +128,7 @@ def heuristic_relevance(question: str, answer: str) -> float:
         return 0.5
     overlap = len(question_words & answer_words) / len(question_words)
 
-    # Aşırı kısa veya aşırı uzun cevaplar cezalandırılır.
+    # Excessively short or excessively long answers are penalized.
     length = len(answer.split())
     length_factor = 1.0
     if length < 5:
@@ -137,19 +139,19 @@ def heuristic_relevance(question: str, answer: str) -> float:
 
 
 # --------------------------------------------------------------------------- #
-# Veri yükleme
+# Data loading
 # --------------------------------------------------------------------------- #
 def load_llm_outputs(path: Path) -> list[dict[str, Any]]:
-    """``llm_outputs/<model>/`` altındaki JSON/JSONL cevap kayıtlarını okur.
+    """Reads JSON/JSONL answer records from ``llm_outputs/<model>/``.
 
-    Beklenen kayıt şeması::
+    Expected record schema::
 
         {
           "question": "...",
           "answer": "...",
-          "contexts": ["...", "..."],          # opsiyonel
-          "expected_sources": ["dosya.md"],    # opsiyonel (retrieval icin)
-          "ground_truth": "..."                # opsiyonel
+          "contexts": ["...", "..."],          # optional
+          "expected_sources": ["file.md"],     # optional (for retrieval)
+          "ground_truth": "..."                # optional
         }
     """
     records: list[dict[str, Any]] = []
@@ -162,7 +164,7 @@ def load_llm_outputs(path: Path) -> list[dict[str, Any]]:
         try:
             raw = file_path.read_text(encoding="utf-8")
         except OSError as exc:
-            logger.warning("cikti dosyasi okunamadi", extra={"file": str(file_path), "error": str(exc)})
+            logger.warning("could not read output file", extra={"file": str(file_path), "error": str(exc)})
             continue
 
         if file_path.suffix.lower() == ".jsonl":
@@ -181,7 +183,7 @@ def load_llm_outputs(path: Path) -> list[dict[str, Any]]:
         try:
             payload = json.loads(raw)
         except json.JSONDecodeError:
-            logger.warning("gecersiz JSON", extra={"file": str(file_path)})
+            logger.warning("invalid JSON", extra={"file": str(file_path)})
             continue
         if isinstance(payload, list):
             records.extend([item for item in payload if isinstance(item, dict)])
@@ -216,16 +218,16 @@ def load_llm_outputs(path: Path) -> list[dict[str, Any]]:
 
 
 # --------------------------------------------------------------------------- #
-# RAGAS arka ucu
+# RAGAS backend
 # --------------------------------------------------------------------------- #
 def _try_ragas(records: Sequence[dict[str, Any]]) -> dict[str, float] | None:
-    """RAGAS ile faithfulness/answer_relevancy hesaplamayı dener."""
+    """Attempts to compute faithfulness/answer_relevancy via RAGAS."""
     try:
         from datasets import Dataset
         from ragas import evaluate as ragas_evaluate
         from ragas.metrics import answer_relevancy, faithfulness
     except ImportError:
-        logger.info("ragas yuklu degil, heuristic degerlendirmeye dusuluyor")
+        logger.info("ragas not installed, falling back to heuristic evaluation")
         return None
 
     try:
@@ -245,23 +247,23 @@ def _try_ragas(records: Sequence[dict[str, Any]]) -> dict[str, float] | None:
         }
     except Exception as exc:
         logger.warning(
-            "ragas calistirilamadi, heuristic'e dusuluyor", extra={"error": str(exc)[:200]}
+            "ragas execution failed, falling back to heuristic", extra={"error": str(exc)[:200]}
         )
         return None
 
 
 # --------------------------------------------------------------------------- #
-# Ana değerlendirme
+# Main evaluation
 # --------------------------------------------------------------------------- #
 def evaluate_generation(
     records: Sequence[dict[str, Any]], settings: Settings | None = None
 ) -> GenerationQualityResult:
-    """Faithfulness / relevance / halüsinasyon oranını hesaplar."""
+    """Computes faithfulness / relevance / hallucination rate."""
     settings = settings or get_settings()
     started = time.perf_counter()
 
     if not records:
-        return GenerationQualityResult(status=Status.SKIPPED, message="degerlendirilecek cevap yok")
+        return GenerationQualityResult(status=Status.SKIPPED, message="no answers to evaluate")
 
     limited = list(records)[: settings.rag_evaluation.max_samples]
     backend = settings.rag_evaluation.backend.lower()
@@ -270,7 +272,7 @@ def evaluate_generation(
         aggregate = _try_ragas(limited)
         if aggregate is None and backend == "ragas":
             return GenerationQualityResult(
-                status=Status.ERROR, message="ragas arka ucu kullanilamadi"
+                status=Status.ERROR, message="ragas backend unavailable"
             )
 
     per_record: list[dict[str, Any]] = []
@@ -315,10 +317,10 @@ def evaluate_generation(
         answers_evaluated=len(per_record),
         backend=backend_name,
         worst_examples=worst,
-        message=f"{len(per_record)} cevap / {hallucinated} supheli",
+        message=f"{len(per_record)} answers / {hallucinated} suspect",
     )
     logger.info(
-        "uretim kalitesi degerlendirildi",
+        "generation quality evaluated",
         extra={
             "backend": backend_name,
             "faithfulness": result.faithfulness,
@@ -329,8 +331,8 @@ def evaluate_generation(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="RAG uretim kalitesi degerlendirmesi")
-    parser.add_argument("--outputs", required=True, help="llm_outputs/<model> klasoru veya JSON")
+    parser = argparse.ArgumentParser(description="RAG generation quality evaluation")
+    parser.add_argument("--outputs", required=True, help="llm_outputs/<model> folder or a JSON file")
     args = parser.parse_args()
 
     path = Path(args.outputs)

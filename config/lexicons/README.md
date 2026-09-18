@@ -1,30 +1,32 @@
-# İçerik güvenliği sözlükleri
+# Content safety lexicons
 
-Her `.txt` dosyası bir kategoriyi temsil eder; dosya adı kategori adıdır.
-Kategorinin önem derecesi `config/settings.yaml` içindeki
-`content_safety.category_severity` bölümünde tanımlanır.
+Each `.txt` file represents one category; the filename is the category
+name. A category's severity is defined in the
+`content_safety.category_severity` section of `config/settings.yaml`.
 
 ## Format
 
-- Satır başına bir **terim kökü** (ek almadan önceki hâli)
-- `#` ile başlayan satırlar yorumdur
-- Kökler en az 4 karakter olmalıdır (kısa kökler yanlış pozitif üretir)
-- Türkçe ekler otomatik tolere edilir: `aptal` kökü `aptalsın`, `aptallar`
-  gibi türevleri de yakalar (kök + en fazla 6 karakter ek)
-- Harf değiştirme (a→@, i→1), harf arası ayraç (a.p.t.a.l) ve harf tekrarı
-  (aptaaal) tarayıcı tarafından normalize edilir; bunların varyantlarını
-  ayrıca yazmaya gerek yoktur
+- One **term root** per line (the form before any suffix)
+- Lines starting with `#` are comments
+- Roots must be at least 4 characters long (shorter roots produce false
+  positives)
+- Suffixes are tolerated automatically: the root `idiot` also catches
+  derivatives like `idiotic`, `idiots` (root + up to 6 extra characters)
+- Character substitution (a→@, i→1), inter-letter separators (i.d.i.o.t),
+  and letter repetition (idiooot) are normalized by the scanner; there is
+  no need to also write out these variants
 
-## Boş dosyalar
+## Empty files
 
-Boş bırakılan bir kategori **pasif** sayılır ve tarama sonucunda
-`inactive_categories` altında raporlanır. Sistem hata vermez, ama o
-kategori ölçülmemiş olur — raporda bu açıkça görünür.
+A category left empty is considered **inactive** and is reported under
+`inactive_categories` in the scan result. The system does not error, but
+that category goes unmeasured — this is shown explicitly in the report.
 
-## Kurumsal onay gerektiren kategoriler
+## Categories requiring organizational approval
 
-`religious_insult.txt` ve benzeri kültürel bağlam taşıyan kategorilerin
-içeriği **kurum tarafından tanımlanmalıdır**. Dine yönelik akademik veya
-eleştirel bir ifade ile hakaret arasındaki sınır teknik bir karar değildir.
-Bu dosya doldurulmadan önce, kabul edilebilir ve edilemez örneklerden
-oluşan yazılı bir kılavuz alınması önerilir.
+The content of `religious_insult.txt` and similar categories carrying
+cultural context **must be defined by the organization**. The line
+between an academic or critical statement about religion and an insult
+is not a technical decision. It is recommended that written guidance
+consisting of acceptable and unacceptable examples be obtained before
+this file is filled in.

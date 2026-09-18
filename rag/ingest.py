@@ -1,17 +1,18 @@
-"""Track B — Doküman yükleme, chunking ve indeksleme.
+"""Track B — document loading, chunking, and indexing.
 
-Akış::
+Flow::
 
-    data/rag_corpus/*.md|*.txt  →  chunk (overlap'lı)  →  embedding  →  vector store
+    data/rag_corpus/*.md|*.txt  →  chunk (with overlap)  →  embedding  →  vector store
 
-Korpus boşsa, ``--seed`` bayrağıyla küçük bir örnek doküman seti üretilir;
-bu set kasıtlı olarak *doğrulanabilir olgular* içerir (tarih, sayı, isim),
-böylece faithfulness ve halüsinasyon ölçümü anlamlı olur.
+If the corpus is empty, the ``--seed`` flag generates a small sample
+document set; this set deliberately contains *verifiable facts* (dates,
+numbers, names), so that faithfulness and hallucination measurement is
+meaningful.
 
 CLI::
 
-    python -m rag.ingest --seed        # ornek korpusu olustur ve indeksle
-    python -m rag.ingest --reset       # indeksi sifirlayip yeniden kur
+    python -m rag.ingest --seed        # generate and index the sample corpus
+    python -m rag.ingest --reset       # reset the index and rebuild it
 """
 
 from __future__ import annotations
@@ -30,81 +31,84 @@ logger = get_logger(__name__)
 SUPPORTED_SUFFIXES = {".md", ".txt", ".rst"}
 
 SEED_CORPUS: dict[str, str] = {
-    "sirket_politikasi.md": """# Kurumsal Bilgi Güvenliği Politikası
+    "security_policy.md": """# Corporate Information Security Policy
 
-Politika sürümü 4.2, 12 Mart 2024 tarihinde yürürlüğe girmiştir.
-Tüm çalışanlar yılda iki kez, toplam 6 saatlik güvenlik farkındalık
-eğitimini tamamlamak zorundadır.
+Policy version 4.2, effective March 12, 2024. All employees must complete
+a total of 6 hours of security awareness training twice a year.
 
-Parolalar en az 14 karakter uzunluğunda olmalı ve 90 günde bir
-değiştirilmelidir. Çok faktörlü kimlik doğrulama (MFA) tüm yönetici
-hesapları için zorunludur.
+Passwords must be at least 14 characters long and changed every 90 days.
+Multi-factor authentication (MFA) is mandatory for all administrator
+accounts.
 
-Güvenlik ihlali şüphesi, olayın fark edilmesinden itibaren en geç
-4 saat içinde Güvenlik Operasyon Merkezi'ne bildirilmelidir.
+Suspected security incidents must be reported to the Security Operations
+Center no later than 4 hours after detection.
 """,
-    "veri_saklama.md": """# Veri Saklama ve İmha Prosedürü
+    "data_retention.md": """# Data Retention and Disposal Procedure
 
-Müşteri işlem kayıtları 10 yıl boyunca saklanır. Pazarlama amaçlı
-davranışsal veriler ise en fazla 24 ay saklanabilir.
+Customer transaction records are retained for 10 years. Behavioral data
+collected for marketing purposes may be retained for at most 24 months.
 
-Silme talepleri (KVKK madde 7 kapsamında) 30 gün içinde
-sonuçlandırılır. Yedeklerden silme işlemi ek olarak 60 günü bulabilir.
+Deletion requests (under applicable data protection regulation) are
+completed within 30 days; removal from backups may take an additional
+60 days.
 
-Veri sınıflandırması dört seviyelidir: Açık, Dahili, Gizli ve
-Çok Gizli. Çok Gizli veriler yalnızca şifreli disklerde tutulur.
+Data is classified into four levels: Public, Internal, Confidential, and
+Highly Confidential. Highly Confidential data is stored only on encrypted
+disks.
 """,
-    "model_yasam_dongusu.md": """# ML Model Yaşam Döngüsü Standardı
+    "model_lifecycle.md": """# ML Model Lifecycle Standard
 
-Üretime alınan her model için bir Model Kartı hazırlanması zorunludur.
-Model Kartı en az şu bölümleri içerir: amaç, eğitim verisi, metrikler,
-bilinen sınırlamalar ve etik değerlendirme.
+Every model deployed to production requires a Model Card. A Model Card
+must contain at least the following sections: purpose, training data,
+metrics, known limitations, and ethical review.
 
-Modeller üretimde 3 ayda bir yeniden değerlendirilir. Performans,
-temel çizginin 5 puan altına düşerse model geri çekilir.
+Production models are re-evaluated every 3 months. If performance drops
+more than 5 points below baseline, the model is withdrawn.
 
-Veri kayması (data drift) izleme eşiği, popülasyon kararlılık indeksi
-(PSI) için 0.20 olarak belirlenmiştir.
+The data drift monitoring threshold, measured by Population Stability
+Index (PSI), is set at 0.20.
 """,
-    "erisim_yonetimi.md": """# Erişim Yönetimi Kılavuzu
+    "access_management.md": """# Access Management Guide
 
-Erişim talepleri yönetici onayı ve veri sahibinin onayı ile iki
-aşamalı olarak değerlendirilir. Onaysız erişim verilmez.
+Access requests are evaluated in two stages: manager approval and data
+owner approval. Access is never granted without both approvals.
 
-Ayrıcalıklı hesaplar için oturum süresi 15 dakika hareketsizlikten
-sonra sonlandırılır. Ayrıcalıklı erişim kayıtları 5 yıl saklanır.
+Privileged account sessions are terminated after 15 minutes of
+inactivity. Privileged access logs are retained for 5 years.
 
-İşten ayrılan personelin tüm erişimleri, ayrılış gününün sonuna kadar
-kapatılır. Bu işlemin doğrulaması İnsan Kaynakları tarafından yapılır.
+All access for departing employees is revoked by the end of their last
+working day. This action is verified by Human Resources.
 """,
-    "olay_mudahale.md": """# Olay Müdahale Planı
+    "incident_response.md": """# Incident Response Plan
 
-Olaylar dört önem seviyesine ayrılır: P1 (kritik), P2 (yüksek),
-P3 (orta), P4 (düşük). P1 olaylarda müdahale ekibi 30 dakika içinde
-toplanır.
+Incidents are classified into four severity levels: P1 (critical),
+P2 (high), P3 (medium), P4 (low). For P1 incidents, the response team
+assembles within 30 minutes.
 
-Kök neden analizi raporu, olayın kapanmasından sonraki 10 iş günü
-içinde yayımlanır. Rapor suçlayıcı olmayan (blameless) bir dille yazılır.
+The root cause analysis report is published within 10 business days
+after the incident is closed. The report is written in a blameless
+tone.
 
-Müşteriyi etkileyen olaylarda bildirim yükümlülüğü 72 saattir.
+The notification obligation for incidents affecting customers is 72
+hours.
 """,
 }
 
 
 def ensure_seed_corpus(settings: Settings) -> Path:
-    """Örnek korpus dosyalarını (yoksa) diske yazar."""
+    """Writes the sample corpus files to disk (if not already present)."""
     corpus_dir = settings.paths.absolute(settings.paths.rag_corpus_dir)
     corpus_dir.mkdir(parents=True, exist_ok=True)
     for filename, content in SEED_CORPUS.items():
         path = corpus_dir / filename
         if not path.exists():
             path.write_text(content, encoding="utf-8")
-            logger.info("ornek dokuman yazildi", extra={"file": filename})
+            logger.info("sample document written", extra={"file": filename})
     return corpus_dir
 
 
 def load_documents(corpus_dir: Path) -> list[tuple[str, str]]:
-    """Korpus klasöründeki metin dosyalarını (isim, içerik) olarak okur."""
+    """Reads the text files in the corpus folder as (name, content) pairs."""
     if not corpus_dir.exists():
         return []
     documents: list[tuple[str, str]] = []
@@ -114,12 +118,12 @@ def load_documents(corpus_dir: Path) -> list[tuple[str, str]]:
         try:
             documents.append((path.name, path.read_text(encoding="utf-8", errors="replace")))
         except OSError as exc:
-            logger.warning("dokuman okunamadi", extra={"file": str(path), "error": str(exc)})
+            logger.warning("could not read document", extra={"file": str(path), "error": str(exc)})
     return documents
 
 
 def chunk_text(text: str, chunk_size: int, overlap: int) -> list[str]:
-    """Metni paragraf sınırlarına saygılı, overlap'lı parçalara böler."""
+    """Splits text into overlapping chunks that respect paragraph boundaries."""
     if chunk_size <= 0:
         return [text]
     overlap = max(0, min(overlap, chunk_size - 1))
@@ -145,7 +149,7 @@ def chunk_text(text: str, chunk_size: int, overlap: int) -> list[str]:
     if buffer:
         chunks.append(buffer)
 
-    # Overlap'ı chunk'lar arasında da uygula (bağlam kopmasını azaltır).
+    # Apply overlap between chunks too (reduces context loss).
     if overlap and len(chunks) > 1:
         merged = [chunks[0]]
         for previous, current in itertools.pairwise(chunks):
@@ -155,7 +159,7 @@ def chunk_text(text: str, chunk_size: int, overlap: int) -> list[str]:
 
 
 def build_documents(pairs: list[tuple[str, str]], settings: Settings) -> list[Document]:
-    """Ham dosyaları chunk'lanmış ``Document`` nesnelerine çevirir."""
+    """Converts raw files into chunked ``Document`` objects."""
     documents: list[Document] = []
     for source, content in pairs:
         chunks = chunk_text(content, settings.rag.chunk_size, settings.rag.chunk_overlap)
@@ -177,7 +181,7 @@ def build_documents(pairs: list[tuple[str, str]], settings: Settings) -> list[Do
 def ingest(
     reset: bool = False, seed: bool = False, settings: Settings | None = None
 ) -> dict[str, object]:
-    """Korpusu okuyup vektör deposuna indeksler; özet döndürür."""
+    """Reads the corpus and indexes it into the vector store; returns a summary."""
     settings = settings or get_settings()
     corpus_dir = settings.paths.absolute(settings.paths.rag_corpus_dir)
 
@@ -187,7 +191,7 @@ def ingest(
 
     pairs = load_documents(corpus_dir)
     if not pairs:
-        logger.error("korpus bos", extra={"corpus_dir": str(corpus_dir)})
+        logger.error("corpus is empty", extra={"corpus_dir": str(corpus_dir)})
         return {"documents": 0, "chunks": 0, "backend": "none"}
 
     embedder = build_embedder(settings)
@@ -196,7 +200,7 @@ def ingest(
     if reset:
         store.reset()
     elif store.load() and store.count() > 0:
-        logger.info("mevcut indeks kullaniliyor", extra={"chunks": store.count()})
+        logger.info("using existing index", extra={"chunks": store.count()})
         return {
             "documents": len(pairs),
             "chunks": store.count(),
@@ -217,14 +221,14 @@ def ingest(
         "corpus_dir": str(corpus_dir.relative_to(PROJECT_ROOT)),
         "reused": False,
     }
-    logger.info("indeksleme tamamlandi", extra=summary)
+    logger.info("indexing completed", extra=summary)
     return summary
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="RAG korpusunu indeksle")
-    parser.add_argument("--reset", action="store_true", help="Mevcut indeksi sil ve yeniden kur")
-    parser.add_argument("--seed", action="store_true", help="Ornek korpus dosyalarini olustur")
+    parser = argparse.ArgumentParser(description="Index the RAG corpus")
+    parser.add_argument("--reset", action="store_true", help="Delete the existing index and rebuild it")
+    parser.add_argument("--seed", action="store_true", help="Generate the sample corpus files")
     args = parser.parse_args()
     print(ingest(reset=args.reset, seed=args.seed))
 

@@ -1,22 +1,18 @@
-# Kişiye yönelik aşağılama / küçümseme kökleri
+# Roots for personal, targeted put-downs
 #
-# Kategori tanımı: Çöltekin, Ç. (2020). "A Corpus of Turkish Offensive
-# Language on Social Media." LREC 2020 — burada "insult", OffensEval
-# şemasındaki hedefli (targeted) bireysel aşağılamaya karşılık gelir;
-# profanity.txt'deki hedefsiz kaba dilden ayrılır.
+# Category definition: Çöltekin, Ç. (2020). "A Corpus of Turkish
+# Offensive Language on Social Media." LREC 2020 — here "insult"
+# corresponds to the targeted individual put-down in the OffensEval
+# scheme, distinct from the untargeted crude language in profanity.txt.
 #
-# Aşağıdaki kökler kaba küfür değil, nötr-görünüşlü ama küçümseyici sıfat
-# köküdür; LDNOOBW gibi bir "kötü kelime" listesinde yer almazlar, bu
-# yüzden dış kaynağa değil genel dilbilgisi sözlüğüne dayanır.
+# The roots below are not crude language but neutral-sounding, demeaning
+# adjective roots; they do not appear on a "bad word" list like LDNOOBW,
+# so this list is based on general vocabulary rather than an external
+# source.
 #
-# DÜZELTME: "işe yaramaz" boşluk içerdiği için hiçbir zaman eşleşmiyordu
-# (eşleştirme motoru metni tek kelimelik token'lara bölüp
-# ``token.startswith(root)`` kontrolü yapıyor; boşluklu kök bir token'a
-# asla eşit olamaz). Tek kelimelik "yaramaz" ile değiştirildi.
-#
-# BİLİNEN SINIRLAMA: Bu liste bir başlangıç noktasıdır, kurumsal onaylı
-# nihai liste değildir.
-beceriksiz
-yaramaz
-cahil
-değersiz
+# KNOWN LIMITATION: This list is a starting point, not an
+# organization-approved final list.
+incompetent
+worthless
+pathetic
+clueless

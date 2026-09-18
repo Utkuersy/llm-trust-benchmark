@@ -1,171 +1,181 @@
-# Yönetişim çerçeveleriyle hizalanma
+# Alignment with governance frameworks
 
-Bu belge, platformun ölçtüğü şeyleri uluslararası AI yönetişim
-çerçevelerine eşler. Amaç **yasal zorunluluk iddia etmek değil** —
-kurumun gönüllü olarak tanınmış iyi yönetişim standartlarına hizalandığını
-göstermektir. Bu ayrım, belgenin her yerinde korunur.
+This document maps what the platform measures onto international AI
+governance frameworks. The goal is **not to claim a legal obligation** —
+it is to show that the organization has voluntarily aligned itself with
+recognized good-governance standards. This distinction is preserved
+throughout the document.
 
 ---
 
-## 0. Önce bir düzeltme — neden "EU AI Act uyumu" yanlış çerçeveleme
+## 0. A correction up front — why "EU AI Act compliance" is the wrong framing
 
-İlk taslakta bu belge "EU AI Act'e uyum" olarak kurgulanmıştı. İki gerekçeyle
-bu çerçeveleme terk edildi:
+In the first draft, this document was framed as "compliance with the EU
+AI Act." That framing was abandoned for two reasons:
 
-**Madde 2(3) — kapsam dışı bırakma.** EU AI Act'in 2. maddesinin 3. fıkrası,
-yalnızca askeri, savunma veya milli güvenlik amacıyla kullanılan AI
-sistemlerini **kapsam dışı** bırakır — "yüksek riskli" kategoriye değil,
-regülasyonun kendisine tabi değildir. Recital 24, sistem sivil veya
-dual-use amaçla da kullanılıyorsa kapsama geri girdiğini belirtir; ama
-saf savunma kullanımı için muafiyet açıktır.
+**Article 2(3) — scope exclusion.** Article 2, paragraph 3 of the EU AI
+Act **excludes** AI systems used exclusively for military, defense, or
+national security purposes — not moving them into the "high-risk"
+category, but taking them outside the regulation's scope entirely.
+Recital 24 notes that a system re-enters scope if it is also used for
+civilian or dual-use purposes; but the exemption for purely defense use
+is clear.
 
-> Kaynak: Regulation (EU) 2024/1689, Article 2(3); Recital 24.
+> Source: Regulation (EU) 2024/1689, Article 2(3); Recital 24.
 > "AI systems ... used exclusively for military, defence or national
 > security purposes ... this Regulation does not apply."
 
-**Yargı yetkisi.** AI Act, AB pazarına sürülmeyen veya çıktısı AB'de
-kullanılmayan sistemleri bağlamaz (Madde 2). Şirket AB üyesi olmayan bir
-ülkede kurulu ve sistem yalnızca iç ağda, iç kullanıcılar için çalışıyorsa,
-regülasyonun *doğrudan* uygulanabilirliği tartışmaya açıktır.
+**Jurisdiction.** The AI Act does not bind systems that are not placed
+on the EU market or whose output is not used in the EU (Article 2). If
+the company is established outside the EU and the system runs only on
+an internal network for internal users, the AI Act's *direct*
+applicability is open to debate.
 
-**Sonuç.** "Bu sistem AI Act'in yüksek riskli kategorisine giriyor, o yüzden
-Madde 15'e uymak zorundayız" cümlesi, bir AI Governance ekibinin önünde
-kolayca çürütülebilir. Bunun yerine doğru ve savunulabilir cümle şudur:
+**Conclusion.** The sentence "this system falls into the AI Act's
+high-risk category, so we must comply with Article 15" can easily be
+refuted in front of an AI Governance team. The correct and defensible
+sentence instead is:
 
-> **"Yasal zorunluluk olmasa da, uluslararası kabul görmüş yönetişim
-> çerçevelerinin (NIST AI RMF, ISO/IEC 42001) pratiklerini gönüllü olarak
-> uyguluyoruz; EU AI Act'in teknik gereksinimlerini de — bağlayıcı olmasa
-> bile — iyi tasarım referansı olarak kullanıyoruz. AB pazarına açık bir
-> ürün/hizmet varsa bu eşleme hazır bir başlangıç noktası olur."**
+> **"Although not a legal obligation, we voluntarily apply the
+> practices of internationally recognized governance frameworks (NIST AI
+> RMF, ISO/IEC 42001); we also use the EU AI Act's technical
+> requirements — even though non-binding — as a good design reference.
+> If there is ever a product/service open to the EU market, this mapping
+> becomes a ready starting point."**
 
-Bu ikinci konumlanma daha güçlüdür, çünkü (a) doğrulanabilir bir iddiadır,
-(b) gönüllü uyumun kendisi olgunluk göstergesidir, (c) yasal iddia
-çürütüldüğünde projenin geri kalanının güvenilirliği sarsılmaz.
+This second positioning is stronger, because (a) it is a verifiable
+claim, (b) voluntary compliance is itself a sign of maturity, (c) if the
+legal claim is refuted, it does not shake the credibility of the rest of
+the project.
 
-**Nihai karar hukuk/uyum biriminindir.** Bu belge bir hukuki görüş değildir;
-şirketin belirli bir ürününün/hizmetinin AI Act kapsamına girip girmediği
-sorusu nitelikli hukuk danışmanlığı gerektirir.
+**The final call belongs to legal/compliance.** This document is not a
+legal opinion; whether a specific product/service of the company falls
+under the AI Act requires qualified legal counsel.
 
 ---
 
-## 1. Birincil çapa: NIST AI Risk Management Framework 1.0 (2023)
+## 1. Primary anchor: NIST AI Risk Management Framework 1.0 (2023)
 
-Gönüllü, ABD merkezli ama coğrafyadan bağımsız kullanılan, dört fonksiyonlu
-bir çerçeve: **Govern, Map, Measure, Manage.**
+A voluntary, US-originated but geography-independent, four-function
+framework: **Govern, Map, Measure, Manage.**
 
-| NIST fonksiyonu | Platformdaki karşılığı |
+| NIST function | Its counterpart in the platform |
 |---|---|
-| **Govern** — risk yönetimi kültürü ve süreçleri kurumsallaştırılmış mı | Ağırlık ön ayarlarının versiyonlanması (`SCORING_VERSION`), metodoloji belgesi, denetim izi (bkz. §4) |
-| **Map** — bağlam ve risk kaynakları tanımlanmış mı | Yedi boyutun OWASP LLM Top 10 ve ISO 25010'a eşlenmesi (`docs/METHODOLOGY.md`) |
-| **Measure** — riskler ölçülüyor mu, ölçüm güvenilir mi | Trust Score hesaplama, 135 testlik doğrulama paketi, insan kalibrasyon iskeleti (bkz. §5) |
-| **Manage** — riskler önceliklendirilip azaltılıyor mu | Pipeline izleme (hangi aşamada risk oluştuğu), en riskli bulguların dashboard'da öne çıkarılması |
+| **Govern** — is risk-management culture and process institutionalized | Versioning of weight presets (`SCORING_VERSION`), the methodology document, the audit trail (see §4) |
+| **Map** — are context and risk sources identified | Mapping the seven dimensions onto OWASP LLM Top 10 and ISO 25010 (`docs/METHODOLOGY.md`) |
+| **Measure** — are risks measured, is the measurement reliable | Trust Score computation, a 135-test validation suite, the human calibration scaffolding (see §5) |
+| **Manage** — are risks prioritized and mitigated | Pipeline tracing (at which stage a risk arose), surfacing the riskiest findings on the dashboard |
 
-**Kanıt konumu.** `docs/METHODOLOGY.md`, `docs/DEFENSE.md`, `core/scoring.py`
-(SCORING_VERSION sabiti), `core/trace.py`.
+**Evidence location.** `docs/METHODOLOGY.md`, `docs/DEFENSE.md`,
+`core/scoring.py` (the SCORING_VERSION constant), `core/trace.py`.
 
 ---
 
-## 2. Birincil çapa: ISO/IEC 42001:2023 (AI Management System)
+## 2. Primary anchor: ISO/IEC 42001:2023 (AI Management System)
 
-Gönüllü, uluslararası, ISO 9001 tarzı bir yönetim sistemi standardı —
-"AI'ı nasıl sorumlu yönetiyorsunuz" sorusuna kurumsal süreç düzeyinde cevap
-verir.
+A voluntary, international, ISO 9001-style management system standard —
+it answers the question "how do you responsibly manage AI" at the
+organizational-process level.
 
-| ISO 42001 maddesi | Platformdaki karşılığı |
+| ISO 42001 clause | Its counterpart in the platform |
 |---|---|
-| 6.1 — risk ve fırsat değerlendirmesi | Yedi boyutlu risk taksonomisi |
-| 8.1 — operasyonel planlama ve kontrol | `config/settings.yaml` merkezi konfigürasyon, hiçbir hardcoded eşik yok |
-| 9.1 — izleme, ölçme, analiz, değerlendirme | Trust Score + pipeline izleme + drift raporu (bkz. §4) |
-| 9.2 — iç denetim | Denetim izi tablosu (bkz. §4), 135 testlik doğrulama paketi |
-| 10.1 — sürekli iyileştirme | Test paketinin dört gerçek hata bulup düzeltmesi; versiyonlanmış puanlama şeması |
+| 6.1 — risk and opportunity assessment | The seven-dimension risk taxonomy |
+| 8.1 — operational planning and control | Central configuration via `config/settings.yaml`, no hardcoded thresholds |
+| 9.1 — monitoring, measurement, analysis, evaluation | Trust Score + pipeline tracing + the drift report (see §4) |
+| 9.2 — internal audit | The audit trail table (see §4), the 135-test validation suite |
+| 10.1 — continual improvement | The test suite catching and fixing four real bugs; a versioned scoring scheme |
 
 ---
 
-## 3. İkincil ve şartlı referans: EU AI Act
+## 3. Secondary and conditional reference: EU AI Act
 
-Yalnızca aşağıdaki koşullardan biri gerçekleşirse **doğrudan bağlayıcı**
-hale gelir; aksi halde **gönüllü iyi-tasarım referansı** olarak kullanılır:
+It becomes **directly binding** only if one of the following conditions
+holds; otherwise it is used as a **voluntary good-design reference**:
 
-- Sistem AB pazarına sürülür veya çıktısı AB'de kullanılır (Madde 2), **ve**
-- Sistem yalnızca askeri/savunma/milli güvenlik amaçlı değildir, ya da
-  sivil/dual-use bir kullanımı da vardır (Madde 2(3) istisnasının dışına
-  çıkar).
+- The system is placed on the EU market or its output is used in the EU
+  (Article 2), **and**
+- The system is not used exclusively for military/defense/national
+  security purposes, or it also has a civilian/dual-use application
+  (falls outside the Article 2(3) exemption).
 
-Bu koşullar sağlansa bile sistemin Ek III'teki (Annex III) yüksek riskli
-kategorilerden birine girip girmediği ayrıca değerlendirilmelidir — bu
-platformun kapsamındaki bir iç RAG asistanı otomatik olarak "yüksek riskli"
-sayılmaz.
+Even if these conditions hold, whether the system falls into one of the
+high-risk categories in Annex III must be separately assessed — an
+internal RAG assistant of the kind covered by this platform is not
+automatically "high-risk."
 
-**Koşullu olarak ilgili maddeler ve platform karşılığı:**
+**Conditionally relevant articles and their platform counterpart:**
 
-| Madde | Konu | Platformdaki karşılığı |
+| Article | Topic | Its counterpart in the platform |
 |---|---|---|
-| Madde 9 | Risk yönetim sistemi | Yedi boyutlu risk taksonomisi, ağırlıklı puanlama |
-| Madde 12 | Kayıt tutma (otomatik loglar) | JSON yapılandırılmış loglama, denetim izi tablosu |
-| Madde 13 | Şeffaflık | `backend` alanının her sonuçta raporlanması (heuristic mi RAGAS mi kullanıldı gibi), METHODOLOGY.md |
-| Madde 14 | İnsan gözetimi | İnsan kalibrasyon iskeleti (bkz. §5); dashboard'da bulguların insan incelemesine sunulması |
-| **Madde 15** | **Doğruluk, sağlamlık, siber güvenlik** | **Doğrudan üçlü eşleme aşağıda** |
+| Article 9 | Risk management system | The seven-dimension risk taxonomy, weighted scoring |
+| Article 12 | Record-keeping (automatic logs) | JSON structured logging, the audit trail table |
+| Article 13 | Transparency | Reporting the `backend` field on every result (whether heuristic or RAGAS was used, etc.), METHODOLOGY.md |
+| Article 14 | Human oversight | The human calibration scaffolding (see §5); surfacing findings on the dashboard for human review |
+| **Article 15** | **Accuracy, robustness, cybersecurity** | **A direct three-part mapping below** |
 
-### Madde 15'in üç bileşeni ve platform karşılığı
+### Article 15's three components and the platform's counterpart
 
-Madde 15(1): *"...appropriate level of accuracy, robustness, and
+Article 15(1): *"...appropriate level of accuracy, robustness, and
 cybersecurity, and that they perform consistently ... throughout their
 lifecycle."*
 
-| Madde 15 bileşeni | Platform boyutu |
+| Article 15 component | Platform dimension |
 |---|---|
-| **Accuracy** (doğruluk) | `generation` (faithfulness/halüsinasyon), `math` (matematik doğruluğu), `retrieval` (doğru kaynağı bulma) |
-| **Robustness** (sağlamlık) | `poisoning` (veri zehirlenmesi direnci), dayanıklılık test paketi (ReDoS, kaynak tüketimi, düşmanca girdi) |
-| **Cybersecurity** (siber güvenlik) | `injection` (prompt injection direnci — Madde 15(5)'in özellikle bahsettiği "yetkisiz üçüncü taraf müdahalesi") |
-| **Consistency throughout lifecycle** (yaşam döngüsü boyunca tutarlılık) | Drift raporu (bkz. §4) — model veya konfigürasyon değiştiğinde puan değişimini izler |
+| **Accuracy** | `generation` (faithfulness/hallucination), `math` (math accuracy), `retrieval` (finding the right source) |
+| **Robustness** | `poisoning` (data poisoning resistance), the robustness test suite (ReDoS, resource consumption, adversarial input) |
+| **Cybersecurity** | `injection` (prompt injection resistance — the "unauthorized third-party interference" Article 15(5) specifically mentions) |
+| **Consistency throughout lifecycle** | The drift report (see §4) — tracks score changes when the model or configuration changes |
 
-Bu tablo, Madde 15'in soyut gereksinimlerini somut, ölçülen metriklere
-bağlar. "Yasal olarak buna tabiyiz" değil, **"Madde 15'in tarif ettiği üç
-özelliği zaten ölçüyoruz, bağlayıcı olsun olmasın"** cümlesiyle sunulur.
-
----
-
-## 4. Denetim izi ve tekrarlanabilirlik
-
-Bkz. `core/audit.py` ve `core/versioning.py`. Her koşu şu bilgilerle
-değiştirilemez biçimde (hash zinciriyle) kaydedilir:
-
-- Kim tetikledi (işletim sistemi kullanıcısı, hostname)
-- Ne zaman (UTC zaman damgası)
-- Hangi kod sürümü (git commit hash, varsa)
-- Hangi konfigürasyon (settings.yaml'ın hash'i)
-- Hangi test verisi sürümü (korpus + senaryo + sözlük dosyalarının birleşik hash'i)
-
-Bu, NIST RMF'nin Govern fonksiyonu ve ISO 42001'in 9.2 maddesinin
-karşılığıdır: "bu sonucu nasıl elde ettin" sorusuna kanıt sunar.
+This table ties Article 15's abstract requirements to concrete, measured
+metrics. It is presented not as "we are legally subject to this," but as
+**"we already measure the three properties Article 15 describes,
+binding or not."**
 
 ---
 
-## 5. İnsan kalibrasyonu — dürüstlük notu
+## 4. Audit trail and reproducibility
 
-`core/calibration.py`, bir **kalibrasyon iskeletidir** — örnekleme,
-etiketleme şablonu üretme ve korelasyon hesaplama araçları hazır. Ancak
-**gerçek bir insan etiketleme çalışması bu oturumda yapılmamıştır** çünkü
-gerçek insan değerlendiriciler bu ortamda mevcut değildir.
+See `core/audit.py` and `core/versioning.py`. Every run is recorded
+immutably (via a hash chain) with the following information:
 
-Bu net söylenmelidir: *"Kalibrasyon altyapısı hazır ve test edilmiştir; asıl
-çalışma insan değerlendiricilerle kurum tarafından yürütülmelidir."*
-Sahte bir korelasyon sayısı üretip gerçekmiş gibi sunmak, bu belgenin
-savunduğu dürüstlük ilkesinin tam tersidir ve tespit edildiğinde tüm
-projenin güvenilirliğini yok eder.
+- Who triggered it (the OS user, hostname)
+- When (a UTC timestamp)
+- Which code version (the git commit hash, if available)
+- Which configuration (the hash of settings.yaml)
+- Which test data version (the combined hash of the corpus + scenario + lexicon files)
+
+This is the counterpart to the NIST RMF's Govern function and ISO
+42001's clause 9.2: it provides evidence for the question "how did you
+arrive at this result."
 
 ---
 
-## 6. Kaynaklar
+## 5. Human calibration — an honesty note
+
+`core/calibration.py` is a **calibration scaffold** — sampling, template
+generation, and correlation-computation tools are ready. However, **no
+real human labeling study has been carried out in this session**,
+because no real human evaluators are available in this environment.
+
+This must be stated plainly: *"The calibration infrastructure is ready
+and tested; the actual study must be carried out by the organization
+with human evaluators."* Producing a fake correlation number and
+presenting it as real is the exact opposite of the honesty principle
+this document advocates, and if discovered, it would destroy the
+credibility of the entire project.
+
+---
+
+## 6. Sources
 
 1. Regulation (EU) 2024/1689 (EU AI Act) — Article 2(3), Article 9, Article
    12, Article 13, Article 14, Article 15, Recital 24.
-2. NIST AI Risk Management Framework (AI RMF 1.0), Ocak 2023.
+2. NIST AI Risk Management Framework (AI RMF 1.0), January 2023.
 3. ISO/IEC 42001:2023 — Information technology — Artificial intelligence —
    Management system.
 4. OWASP Top 10 for LLM Applications 2025 (v2.0).
 5. ISO/IEC 25010:2023 — Product quality model.
 
-> **Uyarı.** Bu belge hukuki görüş değildir. Şirketin belirli bir
-> ürününün/hizmetinin hangi çerçevelere hangi ölçüde tabi olduğu, nitelikli
-> hukuk ve uyum danışmanlığı gerektirir.
+> **Warning.** This document is not a legal opinion. To what extent a
+> specific product/service of the company is subject to which
+> frameworks requires qualified legal and compliance counsel.

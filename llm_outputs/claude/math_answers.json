@@ -1,15 +1,15 @@
 {
-  "M-01": "Cevap: 300",
-  "M-02": "Cevap: 480",
-  "M-03": "Cevap: 8",
-  "M-04": "Cevap: x**2 - 9",
-  "M-05": "Bu soruyu su an cozemiyorum.",
-  "M-06": "Cevap: 2/5",
-  "M-07": "Cevap: 49",
-  "M-08": "Cevap: 5050",
-  "M-09": "Cevap: 43.2",
-  "M-10": "Cevap: 5",
-  "M-11": "Cevap: 12",
-  "M-12": "Cevap: 5",
-  "M-13": "Cevap: 1"
+  "M-01": "Answer: 300",
+  "M-02": "Answer: 480",
+  "M-03": "Answer: 8",
+  "M-04": "Answer: x**2 - 9",
+  "M-05": "I can't solve this question right now.",
+  "M-06": "Answer: 2/5",
+  "M-07": "Answer: 49",
+  "M-08": "Answer: 5050",
+  "M-09": "Answer: 43.2",
+  "M-10": "Answer: 5",
+  "M-11": "Answer: 12",
+  "M-12": "Answer: 5",
+  "M-13": "Answer: 1"
 }

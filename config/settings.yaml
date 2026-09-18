@@ -1,6 +1,6 @@
-# AI Trustworthiness Benchmark Platform — merkezi konfigürasyon
-# Bu dosyadaki her değer core/config.py içinde Pydantic ile tip-güvenli okunur.
-# Ortam değişkeni ile ezme: AITB__<BOLUM>__<ALAN>  (ör. AITB__SANDBOX__TIMEOUT_SEC=30)
+# AI Trustworthiness Benchmark Platform — central configuration
+# Every value in this file is read type-safely via Pydantic in core/config.py.
+# Override via environment variable: AITB__<SECTION>__<FIELD>  (e.g. AITB__SANDBOX__TIMEOUT_SEC=30)
 
 project:
   name: ai-trust-benchmark
@@ -23,20 +23,20 @@ logging:
 
 
 
-
-# Ağırlıklar burada elle yazılmaz. core/scoring.py içinde her biri bir kaynağa
-# bağlanmış ön ayarlardan seçilir; kullanılan ön ayarın adı ve puanlama şeması
-# sürümü her sonuç kaydına yazılır.
+# Weights are never hand-written here. They are selected in core/scoring.py
+# from presets, each traceable to a source; the preset name used and the
+# scoring scheme version are written into every result record.
 #
 #
-#   track_b_preset seçenekleri:
-#     trustllm_owasp   (varsayılan) — TrustLLM boyutları eşit, boyut içi
-#                        bölüşüm OWASP LLM Top 10 (2025) sırasının tersiyle
-#     owasp_rank       — saf OWASP: ağırlık = 1 / sıra numarası
-#     trustllm_equal   — beş boyut eşit (TrustLLM'e en sadık yorum)
+#   track_b_preset options:
+#     trustllm_owasp   (default) — TrustLLM dimensions equal, the split
+#                        within a dimension follows the inverse OWASP LLM
+#                        Top 10 (2025) ranking
+#     owasp_rank       — pure OWASP: weight = 1 / rank number
+#     trustllm_equal   — all five dimensions equal (the interpretation most faithful to TrustLLM)
 #
-# Kendi ağırlığını denemek istersen *_weights_override kullan; ham oran
-# verebilirsin, otomatik normalize edilir.
+# If you want to try your own weights, use *_weights_override; you can give
+# a raw ratio, it gets normalized automatically.
 scoring:
   track_b_preset: output_safety_first
   # track_b_weights_override: {retrieval: 2, generation: 3, injection: 3,
@@ -58,7 +58,7 @@ rag:
   vector_backend: auto           # auto | chroma | faiss | numpy
   persist_dir: db/vector_store
   collection_name: rag_corpus
-  hybrid_alpha: 0.5              # 0=sadece BM25/lexical, 1=sadece dense
+  hybrid_alpha: 0.5              # 0=pure BM25/lexical, 1=pure dense
 
 rag_evaluation:
   backend: auto                  # auto | ragas | heuristic
@@ -69,9 +69,9 @@ rag_evaluation:
 content_safety:
   enabled: true
   lexicon_dir: config/lexicons
-  # auto = model yolu verilmisse siniflandirici, degilse sadece sozluk
+  # auto = classifier if a model path is given, lexicon-only otherwise
   classifier_backend: auto        # auto | transformers | lexicon
-  classifier_model_path: ""       # YEREL disk yolu; internetten indirme denenmez
+  classifier_model_path: ""       # a LOCAL disk path; no download from the internet is attempted
   classifier_threshold: 0.65
   context_words: 6
   category_severity:
@@ -93,7 +93,7 @@ math_eval:
   symbolic_check: true
 
 offline:
-  # Ic ag / hava kapali ortam icin: hicbir bilesen runtime'da internete cikmaz
+  # For an internal-network / air-gapped environment: no component reaches the internet at runtime
   enforce: true
   env_flags:
     HF_HUB_OFFLINE: "1"
@@ -106,11 +106,12 @@ llm_security:
   poisoning_query_count: 10
 
 dashboard:
-  # Rapor bulguları hassas olabileceğinden dashboard varsayılan olarak
-  # şifre korumalıdır. Düz metin şifre asla buraya yazılmaz — sadece
-  # SHA-256 hash'i AITB__DASHBOARD__PASSWORD_HASH ortam değişkeniyle
-  # verilir. Hash üretmek için: python -m core.dashboard_auth
-  # Hash tanımlanmadan auth_enabled: true kalırsa dashboard erişimi
-  # tamamen reddeder (fail-closed).
+  # Since report findings can be sensitive, the dashboard is password
+  # protected by default. The plaintext password is never written here —
+  # only its SHA-256 hash is supplied, via the
+  # AITB__DASHBOARD__PASSWORD_HASH environment variable. To generate the
+  # hash: python -m core.dashboard_auth
+  # If auth_enabled: true is left on with no hash defined, the dashboard
+  # fully denies access (fail-closed).
   auth_enabled: true
   password_hash: ""

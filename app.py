@@ -1,25 +1,27 @@
-"""LLM Çıktı Güvenilirliği — Streamlit dashboard (hafif sürüm).
+"""LLM Output Reliability — Streamlit dashboard (lightweight edition).
 
-Dört sekme:
+Four tabs:
 
-* **Genel bakış** — Trust Score, yedi boyutun tek grafiği, en riskli
-  bulgular ve pipeline'ın nerede sorun çıkardığı — tek ekranda, kaydırmadan.
-* **Detaylar** — tam metrik tablosu, filtrelenebilir bulgu listesi, örnek
-  pipeline izinin ham kaydı.
-* **Yönetişim** — drift raporu, denetim izi özeti.
-* **Model Ekle** — yeni bir modelin cevap dosyalarını yükleyip değerlendirmeyi
-  buradan tetikler (bkz. ``render_add_model``); aynı sekmede bir modeli
-  kalıcı olarak silme bölümü de vardır (bkz. ``render_delete_model``).
+* **Overview** — Trust Score, a single chart of the seven dimensions,
+  the riskiest findings, and where the pipeline runs into trouble — all
+  on one screen, no scrolling.
+* **Details** — the full metrics table, a filterable findings list, the
+  raw record of a sample pipeline trace.
+* **Governance** — the drift report, the audit trail summary.
+* **Add Model** — upload a new model's answer files and trigger an
+  evaluation from here (see ``render_add_model``); the same tab also has
+  a section for permanently deleting a model (see ``render_delete_model``).
 
-Önceki sürüme göre: radar grafiği ve tekrarlı sütun grafikleri kaldırıldı
-(aynı bilgiyi farklı biçimde üç kez gösteriyorlardı), grafik sayısı 15'ten
-4'e indi, sekme sayısı 4'ten 2'ye indi. Amaç, en önemli soruya —
-"hangi model güvenilir, neden değil" — ilk ekranda cevap vermek.
+Compared to the previous version: the radar chart and repetitive bar
+charts were removed (they showed the same information three times in
+different forms), the chart count went from 15 to 4, the tab count from
+4 to 2. The goal is to answer the most important question — "which
+model is trustworthy, and why not" — on the very first screen.
 
-Dashboard varsayılan olarak ``db/benchmark.db``'yi okur; "Model Ekle"
-sekmesi, yüklenen dosyaları ``llm_outputs/<model>/`` altına yazıp
-``benchmark_engine.run_benchmark`` ile senkron bir koşu tetikler — bu
-tek istisna dışında dashboard başka bir işlem başlatmaz.
+The dashboard reads from ``db/benchmark.db`` by default; the "Add Model"
+tab writes uploaded files under ``llm_outputs/<model>/`` and triggers a
+synchronous run via ``benchmark_engine.run_benchmark`` — apart from this
+one exception, the dashboard starts no other process.
 """
 
 from __future__ import annotations
@@ -45,13 +47,13 @@ OPTIONAL_UPLOADS = ("injection_responses.json", "math_answers.json")
 
 
 def _require_auth() -> None:
-    """Rapor bulguları hassas olabileceğinden dashboard'u şifreyle korur.
+    """Password-protects the dashboard, since report findings can be sensitive.
 
-    Şifrenin kendisi hiçbir yerde saklanmaz; yalnızca
-    ``AITB__DASHBOARD__PASSWORD_HASH`` ortam değişkenindeki SHA-256 hash'i
-    ile karşılaştırılır (bkz. ``core/dashboard_auth.py``). ``auth_enabled``
-    kapatılmadıkça, hash tanımlı değilse erişim güvenli tarafta kalıp
-    tamamen reddedilir.
+    The password itself is never stored anywhere; it is only compared
+    against the SHA-256 hash held in the ``AITB__DASHBOARD__PASSWORD_HASH``
+    environment variable (see ``core/dashboard_auth.py``). Unless
+    ``auth_enabled`` is turned off, access stays on the safe side and is
+    fully denied when the hash is undefined.
     """
     settings = get_settings()
     if not settings.dashboard.auth_enabled:
@@ -59,44 +61,44 @@ def _require_auth() -> None:
     if st.session_state.get("_authenticated"):
         return
 
-    st.title("🛡️ LLM Çıktı Güvenilirliği")
+    st.title("🛡️ LLM Output Reliability")
     if not settings.dashboard.password_hash:
         st.error(
-            "Kimlik doğrulama etkin ama şifre tanımlanmamış. "
-            "`python -m core.dashboard_auth` ile bir hash üretip "
-            "`AITB__DASHBOARD__PASSWORD_HASH` ortam değişkenine atayın."
+            "Authentication is enabled but no password is defined. "
+            "Generate a hash with `python -m core.dashboard_auth` and "
+            "assign it to the `AITB__DASHBOARD__PASSWORD_HASH` environment variable."
         )
         st.stop()
 
-    password = st.text_input("Dashboard şifresi", type="password")
+    password = st.text_input("Dashboard password", type="password")
     if not password:
         st.stop()
     entered_hash = hashlib.sha256(password.encode("utf-8")).hexdigest()
     if hmac.compare_digest(entered_hash, settings.dashboard.password_hash):
         st.session_state["_authenticated"] = True
         st.rerun()
-    st.error("Hatalı şifre.")
+    st.error("Incorrect password.")
     st.stop()
 
 DIMENSION_LABELS = {
-    "content_safety_score": "İçerik güvenliği",
-    "injection_score": "Injection direnci",
-    "pii_score": "PII güvenliği",
-    "poisoning_score": "Zehirlenme direnci",
+    "content_safety_score": "Content safety",
+    "injection_score": "Injection resistance",
+    "pii_score": "PII safety",
+    "poisoning_score": "Poisoning resistance",
     "retrieval_score": "Retrieval",
     "generation_score": "Faithfulness",
-    "math_score": "Matematik",
+    "math_score": "Math",
 }
 SEVERITY_ORDER = {"HIGH": 0, "MEDIUM": 1, "LOW": 2, "INFO": 3}
 SEVERITY_COLORS = {"HIGH": "#c0392b", "MEDIUM": "#e67e22", "LOW": "#f1c40f", "INFO": "#95a5a6"}
 
-st.set_page_config(page_title="LLM Çıktı Güvenilirliği", page_icon="🛡️", layout="wide")
+st.set_page_config(page_title="LLM Output Reliability", page_icon="🛡️", layout="wide")
 _require_auth()
 
 
 @st.cache_data(ttl=30)
 def load_data() -> dict[str, Any]:
-    """Veritabanından tabloları okur (30 sn cache'li)."""
+    """Reads the tables from the database (cached for 30s)."""
     init_db()
     runs = pd.DataFrame(fetch_runs())
     payloads: dict[str, dict[str, Any]] = {}
@@ -115,14 +117,14 @@ def load_data() -> dict[str, Any]:
 
 
 def latest_per_model(frame: pd.DataFrame) -> pd.DataFrame:
-    """Her model için yalnızca en son koşuyu bırakır."""
+    """Keeps only the latest run for each model."""
     if frame.empty or "model_name" not in frame.columns:
         return frame
     return frame.sort_values("created_at", ascending=False).drop_duplicates("model_name")
 
 
 def score_color(value: float) -> str:
-    """Trust Score'a göre renk."""
+    """A color based on the Trust Score."""
     if value >= 80:
         return "#27ae60"
     if value >= 60:
@@ -131,12 +133,12 @@ def score_color(value: float) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# Genel bakış
+# Overview
 # --------------------------------------------------------------------------- #
 def render_overview(
     frame: pd.DataFrame, payloads: dict[str, dict[str, Any]], findings: pd.DataFrame
 ) -> None:
-    """Tek ekranda: Trust Score, boyutlar, en riskli bulgular, pipeline özeti."""
+    """On one screen: Trust Score, dimensions, the riskiest findings, a pipeline summary."""
     ordered = frame.sort_values("trust_score", ascending=False)
 
     columns = st.columns(min(4, max(1, len(ordered))))
@@ -151,28 +153,28 @@ def render_overview(
 
     _render_measurement_note(payloads)
 
-    st.markdown("##### Yedi boyut")
+    st.markdown("##### The seven dimensions")
     available = [c for c in DIMENSION_LABELS if c in frame.columns]
-    melted = frame.melt(id_vars="model_name", value_vars=available, var_name="boyut", value_name="puan")
-    melted["boyut"] = melted["boyut"].map(DIMENSION_LABELS)
+    melted = frame.melt(id_vars="model_name", value_vars=available, var_name="dimension", value_name="score")
+    melted["dimension"] = melted["dimension"].map(DIMENSION_LABELS)
     st.plotly_chart(
         px.bar(
-            melted, x="boyut", y="puan", color="model_name", barmode="group", range_y=[0, 100],
+            melted, x="dimension", y="score", color="model_name", barmode="group", range_y=[0, 100],
         ).update_layout(height=320, margin={"t": 10, "b": 10}, legend_title=None),
         use_container_width=True,
     )
 
     left, right = st.columns([3, 2])
     with left:
-        st.markdown("##### En riskli bulgular")
+        st.markdown("##### Riskiest findings")
         _render_top_findings(findings, limit=6)
     with right:
-        st.markdown("##### Pipeline: nerede çıktı?")
+        st.markdown("##### Pipeline: where does it break down?")
         _render_pipeline_mini(payloads)
 
 
 def _render_measurement_note(payloads: dict[str, dict[str, Any]]) -> None:
-    """Ölçülmeyen kategori ve atlanan boyutları tek satırda bildirir."""
+    """Reports unmeasured categories and skipped dimensions in a single line."""
     inactive: set[str] = set()
     skipped_count = 0
     for payload in payloads.values():
@@ -184,64 +186,65 @@ def _render_measurement_note(payloads: dict[str, dict[str, Any]]) -> None:
                 skipped_count += 1
     if inactive:
         st.caption(
-            f"⚠️ Ölçülmeyen içerik kategorileri: {', '.join(sorted(inactive))} "
-            "— sözlükleri `config/lexicons/` altında doldurun."
+            f"⚠️ Unmeasured content categories: {', '.join(sorted(inactive))} "
+            "— fill in the lexicons under `config/lexicons/`."
         )
     if skipped_count:
         st.caption(
-            f"ℹ️ {skipped_count} boyut atlandı; ağırlıkları paydadan düşüldü, sıfır puan verilmedi."
+            f"ℹ️ {skipped_count} dimension(s) skipped; their weight was removed "
+            "from the denominator, not scored as zero."
         )
 
 
 def _render_top_findings(findings: pd.DataFrame, limit: int) -> None:
-    """En yüksek önem derecesindeki bulguları kompakt bir tabloda gösterir."""
+    """Shows the highest-severity findings in a compact table."""
     if findings.empty:
-        st.info("Kayıtlı bulgu yok.")
+        st.info("No findings recorded.")
         return
     view = findings.copy()
     view["_rank"] = view["severity"].map(SEVERITY_ORDER).fillna(9)
     view = view.sort_values("_rank").head(limit)
     st.dataframe(
         view[["model_name", "severity", "category", "title"]].rename(
-            columns={"model_name": "model", "severity": "önem", "category": "kategori", "title": "bulgu"}
+            columns={"model_name": "model", "severity": "severity", "category": "category", "title": "finding"}
         ),
         use_container_width=True, hide_index=True, height=38 * min(limit, len(view)) + 38,
     )
 
 
 def _render_pipeline_mini(payloads: dict[str, dict[str, Any]]) -> None:
-    """Aşama bazlı bulgu sayısını tek grafikte gösterir; darboğazı bir satırda özetler."""
+    """Shows the stage-level finding count in a single chart; summarizes the bottleneck in one line."""
     rows = []
     bottlenecks = []
     for model, payload in payloads.items():
         pipeline = payload.get("pipeline") or {}
         for stage, count in (pipeline.get("stage_findings") or {}).items():
-            rows.append({"model_name": model, "aşama": stage, "bulgu": count})
+            rows.append({"model_name": model, "stage": stage, "findings": count})
         if pipeline.get("bottleneck"):
             bottlenecks.append(f"{model}: {pipeline['bottleneck']}")
 
     if not rows:
-        st.info("Pipeline izi yok. `--no-trace` olmadan çalıştırın.")
+        st.info("No pipeline trace. Run without `--no-trace`.")
         return
 
     st.plotly_chart(
         px.bar(
-            pd.DataFrame(rows), x="aşama", y="bulgu", color="model_name", barmode="group",
+            pd.DataFrame(rows), x="stage", y="findings", color="model_name", barmode="group",
         ).update_layout(height=280, margin={"t": 10, "b": 10}, showlegend=False),
         use_container_width=True,
     )
     if bottlenecks:
-        st.caption("Darboğaz (en yavaş aşama): " + " · ".join(bottlenecks))
+        st.caption("Bottleneck (slowest stage): " + " · ".join(bottlenecks))
 
 
 # --------------------------------------------------------------------------- #
-# Detaylar
+# Details
 # --------------------------------------------------------------------------- #
 def render_details(
     frame: pd.DataFrame, payloads: dict[str, dict[str, Any]], findings: pd.DataFrame
 ) -> None:
-    """Tam metrik tablosu, filtrelenebilir bulgular, örnek pipeline izi."""
-    st.markdown("##### Tam metrik tablosu")
+    """The full metrics table, filterable findings, a sample pipeline trace."""
+    st.markdown("##### Full metrics table")
     metric_columns = [c for c in (
         "model_name", "trust_score", *DIMENSION_LABELS,
         "context_precision", "faithfulness", "hallucination_rate",
@@ -249,23 +252,23 @@ def render_details(
     ) if c in frame.columns]
     st.dataframe(frame[metric_columns], use_container_width=True, hide_index=True)
 
-    st.markdown("##### Bulgular")
+    st.markdown("##### Findings")
     if findings.empty:
-        st.info("Kayıtlı bulgu yok.")
+        st.info("No findings recorded.")
     else:
         col1, col2 = st.columns(2)
         with col1:
             model_choice = st.selectbox(
-                "Model", ["(tümü)", *sorted(findings["model_name"].unique().tolist())]
+                "Model", ["(all)", *sorted(findings["model_name"].unique().tolist())]
             )
         with col2:
             category_choice = st.selectbox(
-                "Kategori", ["(tümü)", *sorted(findings["category"].unique().tolist())]
+                "Category", ["(all)", *sorted(findings["category"].unique().tolist())]
             )
         view = findings.copy()
-        if model_choice != "(tümü)":
+        if model_choice != "(all)":
             view = view[view["model_name"] == model_choice]
-        if category_choice != "(tümü)":
+        if category_choice != "(all)":
             view = view[view["category"] == category_choice]
         view["_rank"] = view["severity"].map(SEVERITY_ORDER).fillna(9)
         view = view.sort_values("_rank")
@@ -274,34 +277,34 @@ def render_details(
             use_container_width=True, hide_index=True,
         )
 
-    st.markdown("##### Örnek pipeline izi")
+    st.markdown("##### Sample pipeline trace")
     model_names = sorted(payloads)
     if model_names:
-        selected = st.selectbox("Model seç", model_names, key="trace_model")
+        selected = st.selectbox("Select model", model_names, key="trace_model")
         sample = (payloads[selected].get("pipeline") or {}).get("sample_trace") or {}
         if sample:
-            with st.expander("Ham JSON kaydı"):
+            with st.expander("Raw JSON record"):
                 st.json(sample)
         else:
-            st.caption("Bu model için örnek iz kaydedilmemiş.")
+            st.caption("No sample trace recorded for this model.")
 
 
 def render_governance(frame: pd.DataFrame) -> None:
-    """Denetim izi bütünlüğü ve model drift özetini gösterir.
+    """Shows audit trail integrity and a model drift summary.
 
-    Bilinçli olarak sade tutulmuştur: bu sekme "süsleme" değil, "bu sonuca
-    nasıl ulaştığını kanıtla" sorusuna cevap verir. Ağır grafik yerine
-    doğrudan okunabilir tablolar tercih edilmiştir.
+    Deliberately kept plain: this tab isn't "decoration," it answers the
+    question "prove how you arrived at this result." Directly readable
+    tables are preferred over heavy charts.
     """
     from core.audit import fetch_audit_log, verify_chain
     from core.versioning import explain_dataset_version
 
-    st.markdown("##### Denetim izi bütünlüğü")
+    st.markdown("##### Audit trail integrity")
     ok, problems = verify_chain()
     if ok:
-        st.success("Zincir bütünlüğü doğrulandı — kurcalama tespit edilmedi.")
+        st.success("Chain integrity verified — no tampering detected.")
     else:
-        st.error("UYARI: zincirde tutarsızlık tespit edildi.")
+        st.error("WARNING: inconsistency detected in the chain.")
         for problem in problems:
             st.caption(f"• {problem}")
 
@@ -313,24 +316,24 @@ def render_governance(frame: pd.DataFrame) -> None:
             use_container_width=True, hide_index=True,
         )
     else:
-        st.caption("Henüz denetim izi kaydı yok.")
+        st.caption("No audit trail records yet.")
 
-    st.markdown("##### Test verisi sürümü")
+    st.markdown("##### Test data version")
     version_info = explain_dataset_version()
     st.caption(f"`dataset_version`: `{version_info['dataset_version']}`")
     if version_info["missing"]:
-        st.warning(f"Eksik bileşenler: {', '.join(version_info['missing'])}")
+        st.warning(f"Missing components: {', '.join(version_info['missing'])}")
 
     st.markdown("##### Model drift")
     st.caption(
-        "Puan değişimi veri/ağırlık değişikliğinden mi, gerçek model "
-        "davranışından mı kaynaklanıyor — ayrım burada yapılır."
+        "Whether a score change comes from a data/weight change or from "
+        "real model behavior — the distinction is made here."
     )
     if not frame.empty:
         selected_model = st.selectbox("Model", sorted(frame["model_name"].unique().tolist()))
         report = drift_report(selected_model)
         if report["comparable_pairs"] == 0:
-            st.info("Karşılaştırma için bu modelde en az 2 koşu gerekiyor.")
+            st.info("At least 2 runs are needed for this model to compare.")
         else:
             for transition in report["transitions"]:
                 icon = {"model_drift": "🔴", "config_changed": "🟡", "stable": "🟢"}.get(
@@ -344,40 +347,41 @@ def render_governance(frame: pd.DataFrame) -> None:
 
 
 def render_add_model(settings: Settings) -> None:
-    """Yeni bir modelin cevap dosyalarını yükletip senkron bir değerlendirme koşusu tetikler.
+    """Lets a new model's answer files be uploaded and triggers a synchronous evaluation run.
 
-    Sorular/senaryolar sabittir (RAG korpusu, 12 injection senaryosu, 13
-    matematik sorusu) — kullanıcı yeni soru yazmaz, sadece modelin bu sabit
-    kümeye verdiği cevapları yükler. ``rag_answers.json`` zorunludur; diğer
-    ikisi atlanırsa o boyutlar "ölçülmedi" sayılır, sıfır puan verilmez
-    (bkz. ``core/scoring.aggregate``).
+    The questions/scenarios are fixed (the RAG corpus, 12 injection
+    scenarios, 13 math problems) — the user doesn't write new questions,
+    only uploads the model's answers to this fixed set.
+    ``rag_answers.json`` is required; if the other two are skipped,
+    those dimensions are counted as "not measured," not scored as zero
+    (see ``core/scoring.aggregate``).
     """
     if "model_tab_message" in st.session_state:
         st.success(st.session_state.pop("model_tab_message"))
 
     st.markdown(
-        "Yeni bir modeli değerlendirmek için cevap dosyalarını yükleyin. "
-        "Sorular sabittir; sadece modelin bu sorulara/senaryolara verdiği "
-        "cevaplar gerekir. Senaryo metinlerini görmek için: "
+        "Upload answer files to evaluate a new model. The questions are "
+        "fixed; only the model's answers to these questions/scenarios are "
+        "needed. To see the scenario texts: "
         "`python -m llm_security.prompt_injection_tests --list`"
     )
 
-    model_name = st.text_input("Model adı", placeholder="ör. yeni_model", key="add_model_name")
-    rag_upload = st.file_uploader(f"{REQUIRED_UPLOAD} (zorunlu)", type="json", key="add_model_rag")
+    model_name = st.text_input("Model name", placeholder="e.g. new_model", key="add_model_name")
+    rag_upload = st.file_uploader(f"{REQUIRED_UPLOAD} (required)", type="json", key="add_model_rag")
     injection_upload = st.file_uploader(
-        "injection_responses.json (opsiyonel — atlanırsa injection boyutu ölçülmez)",
+        "injection_responses.json (optional — if skipped, the injection dimension is not measured)",
         type="json", key="add_model_injection",
     )
     math_upload = st.file_uploader(
-        "math_answers.json (opsiyonel — atlanırsa math boyutu ölçülmez)",
+        "math_answers.json (optional — if skipped, the math dimension is not measured)",
         type="json", key="add_model_math",
     )
 
     disabled = not (model_name and model_name.strip() and rag_upload is not None)
-    if st.button("Değerlendir ve kaydet", type="primary", disabled=disabled):
+    if st.button("Evaluate and save", type="primary", disabled=disabled):
         safe_name = re.sub(r"[^A-Za-z0-9_-]+", "_", model_name.strip()).strip("_")
         if not safe_name:
-            st.error("Geçerli bir model adı girin (harf/rakam/_/-).")
+            st.error("Enter a valid model name (letters/digits/_/-).")
             return
 
         uploads = {
@@ -392,10 +396,10 @@ def render_add_model(settings: Settings) -> None:
             try:
                 parsed[filename] = json.loads(upload.getvalue().decode("utf-8"))
             except UnicodeDecodeError:
-                st.error(f"{filename} UTF-8 metin olarak okunamadı.")
+                st.error(f"{filename} could not be read as UTF-8 text.")
                 return
             except json.JSONDecodeError as exc:
-                st.error(f"{filename} geçerli bir JSON değil: {exc}")
+                st.error(f"{filename} is not valid JSON: {exc}")
                 return
 
         model_dir = settings.paths.absolute(settings.paths.llm_outputs_dir) / safe_name
@@ -405,27 +409,27 @@ def render_add_model(settings: Settings) -> None:
                 json.dumps(content, ensure_ascii=False, indent=2), encoding="utf-8"
             )
 
-        with st.spinner(f"'{safe_name}' değerlendiriliyor…"):
+        with st.spinner(f"Evaluating '{safe_name}'…"):
             from benchmark_engine import run_benchmark
 
             try:
                 results = run_benchmark(models=[safe_name], settings=settings)
             except Exception as exc:
-                st.error(f"Değerlendirme başarısız oldu: {exc}")
+                st.error(f"Evaluation failed: {exc}")
                 return
 
         if not results:
             st.error(
-                "Değerlendirme sonuç üretmedi. Yüklenen dosyaların içeriğini "
-                "(boş liste/sözlük olmadığından) kontrol edin."
+                "The evaluation produced no result. Check the uploaded "
+                "files' content (make sure they aren't an empty list/dict)."
             )
             return
 
-        # st.rerun() bu script çalışmasını hemen keser; mesaj bir sonraki
-        # çalışmada (fonksiyonun başında) gösterilmek üzere session_state'e
-        # yazılır, aksi halde kullanıcı mesajı hiç göremeden sayfa yenilenir.
+        # st.rerun() cuts this script's execution immediately; the message
+        # is stashed in session_state to be shown at the top of the next
+        # run — otherwise the user would never see it before the page reloads.
         st.session_state["model_tab_message"] = (
-            f"'{safe_name}' değerlendirildi — Trust Score: {results[0].trust_score}."
+            f"'{safe_name}' evaluated — Trust Score: {results[0].trust_score}."
         )
         st.cache_data.clear()
         st.rerun()
@@ -435,63 +439,64 @@ def render_add_model(settings: Settings) -> None:
 
 
 def render_delete_model(settings: Settings) -> None:
-    """Yanlışlıkla eklenen veya artık gerekmeyen bir modeli kalıcı olarak siler.
+    """Permanently deletes a model that was added by mistake or is no longer needed.
 
-    ``runs`` satırını silmek ``track_a_results``/``track_b_results``/
-    ``findings`` satırlarını ``ON DELETE CASCADE`` ile otomatik temizler
-    (bkz. ``core/storage.delete_model``); ``llm_outputs/<model>/`` klasörü
-    ayrıca elle silinir çünkü dosya sistemi veritabanına bağlı değildir.
+    Deleting a ``runs`` row automatically clears the corresponding
+    ``track_a_results``/``track_b_results``/``findings`` rows via
+    ``ON DELETE CASCADE`` (see ``core/storage.delete_model``); the
+    ``llm_outputs/<model>/`` folder is deleted separately by hand since
+    the filesystem isn't tied to the database.
     """
-    st.markdown("##### Model sil")
+    st.markdown("##### Delete a model")
     models = sorted({row["model_name"] for row in fetch_runs()})
     if not models:
-        st.caption("Silinecek model yok.")
+        st.caption("No model to delete.")
         return
 
-    to_delete = st.selectbox("Silinecek model", models, key="delete_model_select")
+    to_delete = st.selectbox("Model to delete", models, key="delete_model_select")
     confirm = st.checkbox(
-        f"'{to_delete}' modelini ve tüm sonuçlarını kalıcı olarak silmek istediğimi onaylıyorum",
+        f"I confirm I want to permanently delete '{to_delete}' and all its results",
         key="delete_model_confirm",
     )
-    if st.button("Sil", disabled=not confirm, key="delete_model_button"):
+    if st.button("Delete", disabled=not confirm, key="delete_model_button"):
         deleted = delete_model(to_delete, settings)
         model_dir = settings.paths.absolute(settings.paths.llm_outputs_dir) / to_delete
         if model_dir.is_dir():
             shutil.rmtree(model_dir)
-        st.session_state["model_tab_message"] = f"'{to_delete}' silindi ({deleted} koşu kaydı)."
+        st.session_state["model_tab_message"] = f"'{to_delete}' deleted ({deleted} run records)."
         st.cache_data.clear()
         st.rerun()
 
 
 def main() -> None:
-    """Dashboard giriş noktası."""
+    """The dashboard entry point."""
     settings = get_settings()
-    st.title("🛡️ LLM Çıktı Güvenilirliği")
+    st.title("🛡️ LLM Output Reliability")
 
     data = load_data()
     frame = latest_per_model(data["results"])
 
     with st.sidebar:
-        st.caption(f"Ağırlık ön ayarı: `{settings.scoring.track_b_preset}`")
+        st.caption(f"Weight preset: `{settings.scoring.track_b_preset}`")
         try:
             weights = resolve_preset("B", settings.scoring.track_b_preset)
             st.caption(" · ".join(f"{k}: {v:.2f}" for k, v in weights.items()))
         except (KeyError, ValueError):
-            st.caption("⚠️ ön ayar tanımsız")
-        if st.button("Verileri yenile", use_container_width=True):
+            st.caption("⚠️ undefined preset")
+        if st.button("Refresh data", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
 
     overview_tab, detail_tab, governance_tab, add_model_tab = st.tabs(
-        ["📊 Genel bakış", "🔍 Detaylar", "🛡️ Yönetişim", "➕ Model Ekle"]
+        ["📊 Overview", "🔍 Details", "🛡️ Governance", "➕ Add Model"]
     )
 
     if frame.empty:
         with overview_tab:
             st.warning(
-                "Kayıtlı değerlendirme yok. Sağdaki **Model Ekle** sekmesinden "
-                "bir model ekleyip değerlendirebilir, ya da komut satırından "
-                "sırasıyla şunları çalıştırabilirsiniz:\n\n"
+                "No evaluation on record. Add and evaluate a model from the "
+                "**Add Model** tab on the right, or run the following from "
+                "the command line in order:\n\n"
                 "```\npython -m rag.ingest --seed --reset\n"
                 "python -m scripts.generate_llm_outputs\n"
                 "python benchmark_engine.py\n```"

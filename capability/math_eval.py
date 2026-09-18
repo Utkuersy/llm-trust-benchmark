@@ -1,28 +1,28 @@
-"""Matematik yeteneği değerlendirmesi.
+"""Math capability evaluation.
 
-Modelin bir soru setine verdiği cevapları referans cevaplarla karşılaştırır.
-Zorluk, doğruluğu ölçmekten çok **cevabı serbest metinden çıkarmak ve
-denkliği doğru tanımlamaktır**:
+Compares the model's answers to a problem set against reference answers.
+The difficulty lies less in measuring accuracy than in **correctly
+extracting the answer from free text and defining equivalence**:
 
-* ``1/2``, ``0.5``, ``0,5`` ve ``\\frac{1}{2}`` aynı cevaptır
-* ``2x + 4`` ile ``4 + 2x`` aynı ifadedir
-* ``12 elma`` ile ``12`` aynı cevaptır
-* ``$1,200`` ile ``1200`` aynı sayıdır
+* ``1/2``, ``0.5``, and ``\\frac{1}{2}`` are the same answer
+* ``2x + 4`` and ``4 + 2x`` are the same expression
+* ``12 apples`` and ``12`` are the same answer
+* ``$1,200`` and ``1200`` are the same number
 
-Bu yüzden karşılaştırma üç kademelidir:
+Comparison therefore happens in three tiers:
 
-1. **Normalize edilmiş string eşitliği** — en hızlı, en kesin
-2. **Sayısal denklik** — tolerans dahilinde (``math_eval.tolerance``)
-3. **Sembolik denklik** — SymPy varsa ``simplify(a - b) == 0``
+1. **Normalized string equality** — fastest, most precise
+2. **Numeric equivalence** — within a tolerance (``math_eval.tolerance``)
+3. **Symbolic equivalence** — ``simplify(a - b) == 0`` if SymPy is available
 
-Cevap çıkarılamayan durumlar *yanlış* sayılmaz, ayrı raporlanır
-(``extraction_failures``): bu bir model hatası değil, çıktı formatı
-uyumsuzluğudur ve ayrı bir aksiyon gerektirir.
+Cases where the answer cannot be extracted are not counted as *wrong*;
+they are reported separately (``extraction_failures``): this is an output
+format mismatch, not a model error, and it requires a different action.
 
 CLI::
 
     python -m capability.math_eval --outputs llm_outputs/gemini
-    python -m capability.math_eval --seed        # ornek soru seti olustur
+    python -m capability.math_eval --seed        # generate the sample problem set
 """
 
 from __future__ import annotations
@@ -42,12 +42,12 @@ logger = get_logger(__name__)
 
 MAX_EXAMPLES = 20
 
-# Cevap çıkarma kalıpları, öncelik sırasına göre.
+# Answer-extraction patterns, in priority order.
 BOXED = re.compile(r"\\boxed\{([^{}]+)\}")
-# Ayraç (: veya =) zorunludur: aksi halde "cevaplayamıyorum" gibi kelimelerin
-# içindeki "cevap" hecesi yanlışlıkla işaretçi sayılır.
+# A delimiter (: or =) is required: otherwise the "answer" substring inside
+# words like "I can't answer" would be mistakenly treated as a marker.
 ANSWER_MARKERS = re.compile(
-    r"\b(?:cevap|sonu[çc]|yan[ıi]t|answer|result)\b\s*[:=]\s*(.+?)(?:\n|$)",
+    r"\b(?:answer|result|solution)\b\s*[:=]\s*(.+?)(?:\n|$)",
     re.IGNORECASE,
 )
 FINAL_NUMBER = re.compile(r"(-?\d+(?:[.,]\d+)?(?:\s*/\s*\d+)?)")
@@ -57,36 +57,36 @@ SEED_PROBLEMS: list[dict[str, str]] = [
     {
         "id": "M-01",
         "category": "Prealgebra",
-        "problem": "Bir depoda 480 parça var. Parçaların 3/8'i sevk edildi. Kaç parça kaldı?",
+        "problem": "A warehouse has 480 parts. 3/8 of the parts were shipped. How many parts remain?",
         "answer": "300",
     },
     {
         "id": "M-02",
         "category": "Prealgebra",
         "problem": (
-            "Bir ürünün fiyatı önce %20 artırılıp sonra %20 indirilmiştir. "
-            "Başlangıç fiyatı 500 TL ise son fiyat kaç TL'dir?"
+            "A product's price is first increased by 20% and then decreased "
+            "by 20%. If the starting price is $500, what is the final price?"
         ),
         "answer": "480",
     },
     {
         "id": "M-03",
         "category": "Algebra",
-        "problem": "3x + 7 = 2x + 15 denkleminde x kaçtır?",
+        "problem": "In the equation 3x + 7 = 2x + 15, what is x?",
         "answer": "8",
     },
     {
         "id": "M-04",
         "category": "Algebra",
-        "problem": "(x + 3)(x - 3) ifadesinin açılımı nedir?",
+        "problem": "What is the expansion of (x + 3)(x - 3)?",
         "answer": "x**2 - 9",
     },
     {
         "id": "M-05",
         "category": "Algebra",
         "problem": (
-            "Bir işi A tek başına 6 günde, B tek başına 12 günde bitiriyor. "
-            "Birlikte kaç günde bitirirler?"
+            "Worker A can finish a job alone in 6 days, worker B alone in "
+            "12 days. How many days does it take them working together?"
         ),
         "answer": "4",
     },
@@ -94,61 +94,61 @@ SEED_PROBLEMS: list[dict[str, str]] = [
         "id": "M-06",
         "category": "Counting & Probability",
         "problem": (
-            "Bir torbada 4 kırmızı, 6 mavi bilye var. Rastgele çekilen bir bilyenin "
-            "kırmızı olma olasılığı kaçtır?"
+            "A bag contains 4 red and 6 blue marbles. What is the "
+            "probability that a randomly drawn marble is red?"
         ),
         "answer": "2/5",
     },
     {
         "id": "M-07",
         "category": "Geometry",
-        "problem": "Kenar uzunluğu 7 cm olan bir karenin alanı kaç cm² dir?",
+        "problem": "What is the area, in cm², of a square with a side length of 7 cm?",
         "answer": "49",
     },
     {
         "id": "M-08",
         "category": "Prealgebra",
-        "problem": "1'den 100'e kadar olan tam sayıların toplamı kaçtır?",
+        "problem": "What is the sum of the integers from 1 to 100?",
         "answer": "5050",
     },
     {
         "id": "M-09",
         "category": "Prealgebra",
         "problem": (
-            "Bir sunucunun çalışma süresi %99.9 ise, 30 günlük bir ayda toplam kaç "
-            "dakika kesinti beklenir?"
+            "If a server's uptime is 99.9%, how many total minutes of "
+            "downtime are expected in a 30-day month?"
         ),
         "answer": "43.2",
     },
     {
         "id": "M-10",
         "category": "Algebra",
-        "problem": "x² - 5x + 6 = 0 denkleminin kökleri toplamı kaçtır?",
+        "problem": "In the equation x² - 5x + 6 = 0, what is the sum of the roots?",
         "answer": "5",
     },
     {
         "id": "M-11",
         "category": "Number Theory",
-        "problem": "24 ve 36'nın en büyük ortak böleni (EBOB) kaçtır?",
+        "problem": "What is the greatest common divisor (GCD) of 24 and 36?",
         "answer": "12",
     },
     {
         "id": "M-12",
         "category": "Intermediate Algebra",
-        "problem": "log2(8) + log3(9) toplamı kaçtır?",
+        "problem": "What is log2(8) + log3(9)?",
         "answer": "5",
     },
     {
         "id": "M-13",
         "category": "Precalculus",
-        "problem": "sin(30°) + cos(60°) toplamı kaçtır?",
+        "problem": "What is sin(30°) + cos(60°)?",
         "answer": "1",
     },
 ]
 
 
 def ensure_seed_dataset(settings: Settings) -> Path:
-    """Örnek soru setini (yoksa) diske yazar."""
+    """Writes the sample problem set to disk if it doesn't already exist."""
     path = settings.math_eval.dataset_path
     if not path.is_absolute():
         path = PROJECT_ROOT / path
@@ -157,12 +157,12 @@ def ensure_seed_dataset(settings: Settings) -> Path:
         with path.open("w", encoding="utf-8") as handle:
             for problem in SEED_PROBLEMS:
                 handle.write(json.dumps(problem, ensure_ascii=False) + "\n")
-        logger.info("ornek matematik seti yazildi", extra={"path": str(path)})
+        logger.info("sample math problem set written", extra={"path": str(path)})
     return path
 
 
 def load_problems(path: Path) -> dict[str, dict[str, str]]:
-    """JSONL soru setini ``id -> kayıt`` sözlüğü olarak okur."""
+    """Reads the JSONL problem set as an ``id -> record`` dict."""
     problems: dict[str, dict[str, str]] = {}
     if not path.exists():
         return problems
@@ -179,18 +179,18 @@ def load_problems(path: Path) -> dict[str, dict[str, str]]:
                 "id": str(record["id"]),
                 "problem": str(record.get("problem", "")),
                 "answer": str(record["answer"]),
-                "category": str(record.get("category", "genel")),
+                "category": str(record.get("category", "general")),
             }
     return problems
 
 
 def load_responses(model_dir: Path) -> dict[str, str]:
-    """``math_answers.json`` dosyasından model cevaplarını okur.
+    """Reads model answers from ``math_answers.json``.
 
-    Kabul edilen iki format::
+    Two accepted formats::
 
-        {"M-01": "cevap metni", ...}
-        [{"id": "M-01", "response": "cevap metni"}, ...]
+        {"M-01": "answer text", ...}
+        [{"id": "M-01", "response": "answer text"}, ...]
     """
     path = model_dir / "math_answers.json"
     if not path.exists():
@@ -198,7 +198,7 @@ def load_responses(model_dir: Path) -> dict[str, str]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        logger.warning("matematik cevaplari okunamadi", extra={"error": str(exc)})
+        logger.warning("could not read math answers", extra={"error": str(exc)})
         return {}
 
     if isinstance(payload, dict):
@@ -213,10 +213,10 @@ def load_responses(model_dir: Path) -> dict[str, str]:
 
 
 # --------------------------------------------------------------------------- #
-# Cevap çıkarma
+# Answer extraction
 # --------------------------------------------------------------------------- #
 def extract_answer(response: str) -> str | None:
-    """Serbest metinden nihai cevabı çıkarır."""
+    """Extracts the final answer from free text."""
     if not response or not response.strip():
         return None
     text = response.strip()
@@ -231,7 +231,7 @@ def extract_answer(response: str) -> str | None:
         if candidate:
             return candidate
 
-    # Son satırdaki ifadeyi dene
+    # Try the expression on the last line
     last_line = [line for line in text.splitlines() if line.strip()]
     if last_line:
         numbers = FINAL_NUMBER.findall(last_line[-1])
@@ -245,12 +245,14 @@ def extract_answer(response: str) -> str | None:
 
 
 def normalize_expression(value: str) -> str:
-    """Karşılaştırma öncesi ifadeyi sadeleştirir."""
+    """Simplifies an expression before comparison."""
     text = str(value).strip()
     text = LATEX_FRAC.sub(r"(\1)/(\2)", text)
     text = text.replace("$", "").replace("\\", "").replace("%", "")
-    text = re.sub(r"\b(tl|cm|cm2|cm²|m|kg|adet|parça|parca|gün|gun|dakika|elma)\b", "", text,
-                  flags=re.IGNORECASE)
+    text = re.sub(
+        r"\b(usd|tl|cm|cm2|cm²|m|kg|pieces?|parts?|days?|minutes?|apples?)\b",
+        "", text, flags=re.IGNORECASE,
+    )
     text = text.replace("^", "**").replace("×", "*").replace("÷", "/")
     text = re.sub(r"(?<=\d)[  ](?=\d{3}\b)", "", text)   # 1 200 -> 1200
     text = re.sub(r"(?<=\d),(?=\d{3}\b)", "", text)       # 1,200 -> 1200
@@ -283,7 +285,7 @@ def _symbolically_equal(left: str, right: str) -> bool:
 
 
 def answers_match(predicted: str, expected: str, tolerance: float, symbolic: bool) -> tuple[bool, str]:
-    """İki cevabın denk olup olmadığını ve hangi yöntemle eşleştiğini döndürür."""
+    """Returns whether two answers are equivalent and by which method they matched."""
     left = normalize_expression(predicted)
     right = normalize_expression(expected)
 
@@ -302,27 +304,27 @@ def answers_match(predicted: str, expected: str, tolerance: float, symbolic: boo
 
 
 # --------------------------------------------------------------------------- #
-# Değerlendirme
+# Evaluation
 # --------------------------------------------------------------------------- #
 def evaluate(
     responses: dict[str, str],
     problems: dict[str, dict[str, str]] | None = None,
     settings: Settings | None = None,
 ) -> MathEvalResult:
-    """Model cevaplarını referans cevaplarla karşılaştırır."""
+    """Compares model answers against reference answers."""
     settings = settings or get_settings()
     started = time.perf_counter()
     config = settings.math_eval
 
     if not config.enabled:
-        return MathEvalResult(status=Status.SKIPPED, message="devre disi")
+        return MathEvalResult(status=Status.SKIPPED, message="disabled")
 
     if problems is None:
         problems = load_problems(ensure_seed_dataset(settings))
     if not problems:
-        return MathEvalResult(status=Status.ERROR, message="soru seti bos")
+        return MathEvalResult(status=Status.ERROR, message="problem set is empty")
     if not responses:
-        return MathEvalResult(status=Status.SKIPPED, message="math_answers.json bulunamadi")
+        return MathEvalResult(status=Status.SKIPPED, message="math_answers.json not found")
 
     correct = 0
     evaluated = 0
@@ -376,7 +378,7 @@ def evaluate(
             )
 
     if evaluated == 0:
-        return MathEvalResult(status=Status.SKIPPED, message="eslesen soru bulunamadi")
+        return MathEvalResult(status=Status.SKIPPED, message="no matching problems found")
 
     accuracy = correct / evaluated
     category_accuracy = {
@@ -395,10 +397,10 @@ def evaluate(
         accuracy_by_category=category_accuracy,
         failures=examples,
         symbolic_available=config.symbolic_check and _sympy_available(),
-        message=f"{correct}/{evaluated} dogru, {extraction_failures} cevap cikarilamadi",
+        message=f"{correct}/{evaluated} correct, {extraction_failures} answers could not be extracted",
     )
     logger.info(
-        "matematik degerlendirmesi tamamlandi",
+        "math evaluation completed",
         extra={
             "evaluated": evaluated,
             "accuracy": result.accuracy,
@@ -417,26 +419,26 @@ def _sympy_available() -> bool:
 
 
 def evaluate_model(model_name: str, settings: Settings | None = None) -> MathEvalResult:
-    """``llm_outputs/<model>/math_answers.json`` üzerinden değerlendirme yapar."""
+    """Evaluates using ``llm_outputs/<model>/math_answers.json``."""
     settings = settings or get_settings()
     model_dir = settings.paths.absolute(settings.paths.llm_outputs_dir) / model_name
     return evaluate(load_responses(model_dir), settings=settings)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Matematik yetenek degerlendirmesi")
-    parser.add_argument("--outputs", default=None, help="llm_outputs/<model> klasoru")
-    parser.add_argument("--seed", action="store_true", help="Ornek soru setini olustur")
+    parser = argparse.ArgumentParser(description="Math capability evaluation")
+    parser.add_argument("--outputs", default=None, help="llm_outputs/<model> folder")
+    parser.add_argument("--seed", action="store_true", help="Generate the sample problem set")
     args = parser.parse_args()
 
     settings = get_settings()
     if args.seed:
-        print(f"soru seti: {ensure_seed_dataset(settings)}")
+        print(f"problem set: {ensure_seed_dataset(settings)}")
         if not args.outputs:
             return
 
     if not args.outputs:
-        parser.error("--outputs veya --seed gerekli")
+        parser.error("--outputs or --seed is required")
 
     path = Path(args.outputs)
     if not path.is_absolute():
