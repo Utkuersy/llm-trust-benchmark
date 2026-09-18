@@ -1,8 +1,31 @@
 # 🛡️ LLM Çıktı Güvenilirliği Değerlendirme Platformu
 
+[![CI](https://github.com/Utkuersy/llm-trust-benchmark/actions/workflows/ci.yml/badge.svg)](https://github.com/Utkuersy/llm-trust-benchmark/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.11%2B-blue)
+![License: MIT](https://img.shields.io/badge/license-MIT-green)
+![Tests](https://img.shields.io/badge/tests-172%20passing-brightgreen)
+
 Kurumsal bir RAG asistanının **çıktılarını** güvenilirlik açısından ölçen, iç ağda çalışacak şekilde tasarlanmış bir değerlendirme platformu. Yedi boyut, tek bir Trust Score (0-100).
 
 > **Problem:** Bir LLM asistanının yanlış cevap vermesi düzeltilebilir bir hatadır. Küfürlü, hakaret içeren veya kişisel veri sızdıran bir cevap üretmesi ise kurumsal bir olaydır. Bu platform ikincisini ölçülebilir hale getirir — ve riskin pipeline'ın hangi aşamasından geldiğini söyler.
+
+![Dashboard demosu](docs/assets/dashboard-demo.gif)
+
+## İçindekiler
+
+- [Ölçülen boyutlar](#ölçülen-boyutlar)
+- [Pipeline izleme](#pipeline-izleme)
+- [Kurulum](#kurulum)
+- [Kullanım](#kullanım)
+- [Kendi verinizi değerlendirmek](#kendi-verinizi-değerlendirmek)
+- [İç ağ / hava kapalı çalışma](#i̇ç-ağ--hava-kapalı-çalışma)
+- [Testler ve doğrulama](#testler-ve-doğrulama)
+- [Docker](#docker)
+- [Belgeler](#belgeler)
+- [Kurumsal olgunluk katmanı](#kurumsal-olgunluk-katmanı)
+- [Bilinen sınırlamalar](#bilinen-sınırlamalar)
+- [Proje yapısı](#proje-yapısı)
+- [Lisans](#lisans)
 
 ---
 
@@ -81,6 +104,24 @@ python -m rag.retriever --query "parola en az kaç karakter olmalı"
 ---
 
 ## Kendi verinizi değerlendirmek
+
+### En kolay yol: dashboard üzerinden
+
+`streamlit run app.py` ile açılan dashboard'da **"➕ Model Ekle"** sekmesi,
+terminale hiç dokunmadan bir modeli ekleyip değerlendirmenizi sağlar:
+model adını yazın, `rag_answers.json` dosyasını (zorunlu) ve isterseniz
+`injection_responses.json` / `math_answers.json` dosyalarını (opsiyonel)
+yükleyin, "Değerlendir ve kaydet" butonuna basın — değerlendirme
+`benchmark_engine.run_benchmark` ile senkron çalışır ve sonuç anında
+"📊 Genel bakış" sekmesinde görünür. Aynı sekmedeki **"Model sil"**
+bölümünden, yanlışlıkla eklenen bir modeli (dosyaları + veritabanı
+kayıtlarıyla birlikte) kalıcı olarak kaldırabilirsiniz.
+
+Hangi sorulara/senaryolara cevap hazırlamanız gerektiğini gösteren tam
+liste ve JSON format örnekleri için: aşağıdaki adımlar ya da doğrudan
+`python -m llm_security.prompt_injection_tests --list`.
+
+### Elle / komut satırından
 
 **1. Korpus.** `.md` / `.txt` dosyalarınızı `data/rag_corpus/` içine koyun, `python -m rag.ingest --reset` çalıştırın.
 
@@ -207,7 +248,7 @@ Bir ölçüm aracının en önemli özelliği, neyi ölçemediğini bilmesidir.
 2. **Sözlük katmanı bağlam duyarlı değildir.** Terimin akademik, alıntı veya karşı-söylem bağlamında geçmesi ihlal değildir ama sözlük bunu ayırt edemez. Bu davranış `xfail` testleriyle belgelenmiştir. Bağlam ayrımı sınıflandırıcı katmanının işidir.
 3. **Heuristic faithfulness, LLM-as-judge değildir.** RAGAS bir LLM sağlayıcısı olmadan çalışmaz. Yedek mod sayısal halüsinasyonları iyi yakalar, anlamsal çelişkileri kaçırabilir.
 4. **Injection senaryoları kapalı bir kümedir.** 12 senaryo altı kategoriyi temsil eder; gerçek saldırı yüzeyi sürekli genişler. Düzenli güncelleme gerektirir.
-5. **Erişim kontrolü yoktur.** Dashboard kimlik doğrulaması içermez ve raporlar hassas bulgular taşır. Kurumsal dağıtımdan önce kimlik doğrulama katmanı eklenmelidir.
+5. **Erişim kontrolü tek bir paylaşılan şifreye dayanır.** Dashboard `AITB__DASHBOARD__PASSWORD_HASH` ile korunur (bkz. `core/dashboard_auth.py`) ve şifre tanımlı değilse erişimi tamamen reddeder (fail-closed), ama kullanıcı bazlı roller veya SSO içermez. Kurumsal dağıtımdan önce çok kullanıcılı bir kimlik doğrulama katmanı değerlendirilmelidir.
 6. **Bağımsız güvenlik denetimi yapılmamıştır.** Dayanıklılık testleri belirli zayıflık sınıflarını kapsar; sızma testi yerine geçmez.
 
 ---
