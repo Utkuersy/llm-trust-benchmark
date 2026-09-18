@@ -55,9 +55,8 @@ def test_error_is_recorded_and_reraised() -> None:
     yutmak, kırık pipeline'ın sessizce başarılı görünmesine yol açardı.
     """
     trace = PipelineTrace(pipeline="rag")
-    with pytest.raises(ValueError, match="retrieval coktu"):
-        with trace.stage("retrieval"):
-            raise ValueError("retrieval coktu")
+    with pytest.raises(ValueError, match="retrieval coktu"), trace.stage("retrieval"):
+        raise ValueError("retrieval coktu")
     trace.finish()
 
     stage = trace.stages[0]
@@ -165,9 +164,8 @@ def test_aggregate_computes_error_rate_and_bottleneck() -> None:
         with trace.stage("retrieval"):
             time.sleep(0.02)
         if index < 2:
-            with pytest.raises(RuntimeError):
-                with trace.stage("generation"):
-                    raise RuntimeError("model hatasi")
+            with pytest.raises(RuntimeError), trace.stage("generation"):
+                raise RuntimeError("model hatasi")
         else:
             with trace.stage("generation"):
                 pass

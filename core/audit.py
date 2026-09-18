@@ -31,15 +31,17 @@ from __future__ import annotations
 import getpass
 import hashlib
 import json
+import os
 import socket
 import subprocess  # nosec B404 - sabit git komutu, shell=False
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
-from core.config import PROJECT_ROOT, Settings, get_settings
+from core.config import DEFAULT_CONFIG_PATH, PROJECT_ROOT, Settings, get_settings
 from core.logging_setup import get_logger
 from core.storage import connect
 
@@ -114,7 +116,7 @@ def init_audit_schema(settings: Settings | None = None) -> None:
 def _current_user() -> str:
     try:
         return getpass.getuser()
-    except Exception:  # noqa: BLE001 - bazi konteynerlerde kullanici adi cozulemez
+    except Exception:
         return "unknown"
 
 
@@ -134,7 +136,7 @@ def _git_commit() -> str:
     çağırmanın hem performans hem dosya tanıtıcısı maliyeti var.
     """
     try:
-        result = subprocess.run(  # noqa: S603 # nosec B603, B607
+        result = subprocess.run(  # nosec B603, B607
             ["git", "describe", "--always", "--dirty", "--broken"],
             cwd=PROJECT_ROOT,
             capture_output=True,
@@ -149,9 +151,13 @@ def _git_commit() -> str:
     return "unknown"
 
 
-def _config_hash(settings: Settings) -> str:
-    """settings.yaml içeriğinin SHA-256'sı — konfigürasyon değişikliği tespiti."""
-    config_path = PROJECT_ROOT / "config" / "settings.yaml"
+def _config_hash(_settings: Settings) -> str:
+    """settings.yaml içeriğinin SHA-256'sı — konfigürasyon değişikliği tespiti.
+
+    ``AITB_CONFIG_PATH`` ile özel bir config dosyası verilmişse onu, aksi
+    halde varsayılanı hash'ler — ``get_settings()`` ile aynı çözümleme.
+    """
+    config_path = Path(os.environ.get("AITB_CONFIG_PATH") or DEFAULT_CONFIG_PATH)
     if not config_path.exists():
         return "missing"
     content = config_path.read_bytes()
@@ -171,7 +177,7 @@ def _last_entry(connection: Any) -> tuple[int, str]:
 def _compute_hash(previous_hash: str, payload: dict[str, Any]) -> str:
     """Bir kaydın hash'ini önceki hash + kendi içeriğinden hesaplar."""
     canonical = json.dumps(payload, sort_keys=True, ensure_ascii=False)
-    digest_input = f"{previous_hash}|{canonical}".encode("utf-8")
+    digest_input = f"{previous_hash}|{canonical}".encode()
     return hashlib.sha256(digest_input).hexdigest()
 
 
@@ -186,11 +192,11 @@ def record_run(
     settings = settings or get_settings()
     init_audit_schema(settings)
 
-    from core.scoring import SCORING_VERSION  # noqa: PLC0415 - dairesel import onleme
+    from core.scoring import SCORING_VERSION
 
-    payload = {
+    payload: dict[str, Any] = {
         "run_id": run_id,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "triggered_by": _current_user(),
         "hostname": _current_host(),
         "code_version": _git_commit(),
@@ -220,7 +226,21 @@ def record_run(
             ),
         )
 
-    entry = AuditEntry(sequence=sequence + 1, entry_hash=entry_hash, previous_hash=previous_hash, **payload)
+    entry = AuditEntry(
+        sequence=sequence + 1,
+        entry_hash=entry_hash,
+        previous_hash=previous_hash,
+        run_id=payload["run_id"],
+        timestamp=payload["timestamp"],
+        triggered_by=payload["triggered_by"],
+        hostname=payload["hostname"],
+        code_version=payload["code_version"],
+        config_hash=payload["config_hash"],
+        dataset_version=payload["dataset_version"],
+        preset=payload["preset"],
+        scoring_version=payload["scoring_version"],
+        extra=payload["extra"],
+    )
     logger.info(
         "denetim izi kaydedildi",
         extra={"run_id": run_id, "sequence": entry.sequence, "code_version": entry.code_version},
@@ -312,15 +332,15 @@ def main() -> None:
     if args.action == "verify":
         ok, problems = verify_chain()
         if ok:
-            print("Zincir bütünlüğü doğrulandı, kurcalama tespit edilmedi.")  # noqa: T201
+            print("Zincir bütünlüğü doğrulandı, kurcalama tespit edilmedi.")
         else:
-            print("UYARI — zincirde tutarsızlık tespit edildi:")  # noqa: T201
+            print("UYARI — zincirde tutarsızlık tespit edildi:")
             for problem in problems:
-                print(f"  - {problem}")  # noqa: T201
+                print(f"  - {problem}")
             sys.exit(1)
     else:
         for entry in fetch_audit_log(args.run_id):
-            print(  # noqa: T201
+            print(
                 f"[{entry['sequence']:04d}] {entry['timestamp']} | {entry['run_id']} | "
                 f"kullanıcı={entry['triggered_by']}@{entry['hostname']} | "
                 f"kod={entry['code_version']} | preset={entry['preset']}"

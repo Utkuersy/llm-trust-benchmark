@@ -33,7 +33,7 @@ def main() -> None:
         raise SystemExit("Bos sifre kabul edilmez.")
     if password != confirm:
         raise SystemExit("Sifreler eslesmedi.")
-    print(hash_password(password))  # noqa: T201
+    print(hash_password(password))
 
 
 if __name__ == "__main__":

@@ -30,8 +30,9 @@ import argparse
 import json
 import re
 import time
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 import numpy as np
 
@@ -220,9 +221,9 @@ def load_llm_outputs(path: Path) -> list[dict[str, Any]]:
 def _try_ragas(records: Sequence[dict[str, Any]]) -> dict[str, float] | None:
     """RAGAS ile faithfulness/answer_relevancy hesaplamayı dener."""
     try:
-        from datasets import Dataset  # noqa: PLC0415
-        from ragas import evaluate as ragas_evaluate  # noqa: PLC0415
-        from ragas.metrics import answer_relevancy, faithfulness  # noqa: PLC0415
+        from datasets import Dataset
+        from ragas import evaluate as ragas_evaluate
+        from ragas.metrics import answer_relevancy, faithfulness
     except ImportError:
         logger.info("ragas yuklu degil, heuristic degerlendirmeye dusuluyor")
         return None
@@ -242,7 +243,7 @@ def _try_ragas(records: Sequence[dict[str, Any]]) -> dict[str, float] | None:
             "faithfulness": float(frame["faithfulness"].fillna(0).mean()),
             "answer_relevance": float(frame["answer_relevancy"].fillna(0).mean()),
         }
-    except Exception as exc:  # noqa: BLE001 - LLM saglayicisi yoksa normal
+    except Exception as exc:
         logger.warning(
             "ragas calistirilamadi, heuristic'e dusuluyor", extra={"error": str(exc)[:200]}
         )
@@ -336,7 +337,7 @@ def main() -> None:
     if not path.is_absolute():
         path = PROJECT_ROOT / path
     records = load_llm_outputs(path)
-    print(evaluate_generation(records).model_dump_json(indent=2))  # noqa: T201
+    print(evaluate_generation(records).model_dump_json(indent=2))
 
 
 if __name__ == "__main__":

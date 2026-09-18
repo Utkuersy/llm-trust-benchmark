@@ -30,8 +30,8 @@ source of truth) kurmaktır — genel amaçlı bir eklenti pazarı değil.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable
 
 from core.config import Settings
 from core.schemas import BaseResult
@@ -74,7 +74,7 @@ class Dimension:
     evaluator: Callable[[DimensionContext], BaseResult]
     """Bağlamı alıp bir BaseResult alt sınıfı döndüren fonksiyon."""
 
-    enabled_check: Callable[[Settings], bool] = field(default=lambda settings: True)
+    enabled_check: Callable[[Settings], bool] = field(default=lambda _settings: True)
     """Bu boyutun bu koşuda aktif olup olmadığını belirler (ör. math_eval.enabled)."""
 
 
@@ -144,11 +144,16 @@ def register_builtin_dimensions() -> None:
     if _REGISTRY:
         return
 
-    from llm_security import content_safety_scan, data_poisoning_sim, pii_leakage_scan, prompt_injection_tests
-    from rag import rag_evaluator
-    from rag.retriever import evaluate_retrieval
     from capability import math_eval
     from core.schemas import PoisoningResult, Status
+    from llm_security import (
+        content_safety_scan,
+        data_poisoning_sim,
+        pii_leakage_scan,
+        prompt_injection_tests,
+    )
+    from rag import rag_evaluator
+    from rag.retriever import evaluate_retrieval
 
     register(
         Dimension(

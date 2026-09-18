@@ -21,9 +21,10 @@ from __future__ import annotations
 
 import json
 import tempfile
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 from core.config import PROJECT_ROOT, Settings, get_settings
 from core.logging_setup import get_logger
@@ -37,9 +38,7 @@ def _flatten_metrics(prefix: str, payload: dict[str, Any]) -> dict[str, float]:
     flat: dict[str, float] = {}
     for key, value in payload.items():
         name = f"{prefix}_{key}" if prefix else str(key)
-        if isinstance(value, bool):
-            flat[name] = float(value)
-        elif isinstance(value, (int, float)):
+        if isinstance(value, (bool, int, float)):
             flat[name] = float(value)
         elif isinstance(value, dict):
             flat.update(_flatten_metrics(name, value))
@@ -57,7 +56,7 @@ class ExperimentTracker:
             logger.info("mlflow konfigurasyonla devre disi birakildi")
             return
         try:
-            import mlflow  # noqa: PLC0415 - opsiyonel bagimlilik
+            import mlflow
         except ImportError:
             logger.warning("mlflow yuklu degil, deney takibi atlanacak")
             return
@@ -68,7 +67,7 @@ class ExperimentTracker:
             mlflow.set_tracking_uri(uri)
             self._mlflow = mlflow
             logger.info("mlflow hazir", extra={"tracking_uri": uri})
-        except Exception as exc:  # noqa: BLE001 - takip katmani asla akisi kirmaz
+        except Exception as exc:
             logger.warning("mlflow baslatilamadi", extra={"error": str(exc)})
 
     @property
@@ -98,7 +97,7 @@ class ExperimentTracker:
                     yield run.info.run_id
                 finally:
                     self._active = False
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("mlflow run baslatilamadi", extra={"error": str(exc)})
             self._active = False
             yield None
@@ -109,7 +108,7 @@ class ExperimentTracker:
             return
         try:
             self._mlflow.log_params({k: str(v)[:250] for k, v in params.items()})
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.debug("mlflow param loglanamadi", extra={"error": str(exc)})
 
     def log_metrics(self, metrics: dict[str, Any], prefix: str = "") -> None:
@@ -119,7 +118,7 @@ class ExperimentTracker:
         flat = _flatten_metrics(prefix, metrics)
         try:
             self._mlflow.log_metrics(flat)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.debug("mlflow metrik loglanamadi", extra={"error": str(exc)})
 
     def log_json_artifact(self, payload: dict[str, Any], filename: str) -> None:
@@ -134,7 +133,7 @@ class ExperimentTracker:
                     encoding="utf-8",
                 )
                 self._mlflow.log_artifact(str(path))
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.debug("mlflow artifact loglanamadi", extra={"error": str(exc)})
 
     def set_tags(self, tags: dict[str, Any]) -> None:
@@ -143,7 +142,7 @@ class ExperimentTracker:
             return
         try:
             self._mlflow.set_tags({k: str(v)[:250] for k, v in tags.items()})
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.debug("mlflow tag loglanamadi", extra={"error": str(exc)})
 
 

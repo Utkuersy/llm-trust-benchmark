@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import itertools
 from pathlib import Path
 from typing import Any
 
@@ -157,7 +158,7 @@ def drift_report(model_name: str, settings: Settings | None = None) -> dict[str,
         }
 
     transitions: list[dict[str, Any]] = []
-    for previous, current in zip(rows, rows[1:]):
+    for previous, current in itertools.pairwise(rows):
         delta = round(current["trust_score"] - previous["trust_score"], 2)
         config_changed = previous["config_name"] != current["config_name"]
 
@@ -214,17 +215,17 @@ def main() -> None:
 
     if args.command == "hash":
         report = explain_dataset_version()
-        print(f"dataset_version: {report['dataset_version']}")  # noqa: T201
+        print(f"dataset_version: {report['dataset_version']}")
         for name, value in report["components"].items():
-            print(f"  {name}: {value}")  # noqa: T201
+            print(f"  {name}: {value}")
         if report["missing"]:
-            print(f"UYARI — eksik bileşenler: {report['missing']}")  # noqa: T201
+            print(f"UYARI — eksik bileşenler: {report['missing']}")
     else:
         report = drift_report(args.model)
-        print(f"Model: {report['model_name']}")  # noqa: T201
-        print(f"Karşılaştırılabilir geçiş sayısı: {report['comparable_pairs']}")  # noqa: T201
+        print(f"Model: {report['model_name']}")
+        print(f"Karşılaştırılabilir geçiş sayısı: {report['comparable_pairs']}")
         for transition in report.get("transitions", []):
-            print(  # noqa: T201
+            print(
                 f"  {transition['from_date'][:10]} -> {transition['to_date'][:10]}: "
                 f"{transition['from_score']:.1f} -> {transition['to_score']:.1f} "
                 f"[{transition['classification']}] {transition['explanation']}"

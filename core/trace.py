@@ -42,10 +42,11 @@ import hashlib
 import time
 import traceback
 import uuid
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Callable, Iterator, Sequence
+from datetime import UTC, datetime
+from typing import Any
 
 from core.logging_setup import get_logger
 
@@ -87,7 +88,7 @@ def summarize(value: Any, redactor: Redactor | None = None) -> dict[str, Any]:
     if redactor is not None:
         try:
             preview = redactor(preview)
-        except Exception:  # noqa: BLE001 - redaksiyon akisi kirmasin
+        except Exception:
             preview = "[redaksiyon basarisiz]"
 
     summary: dict[str, Any] = {
@@ -193,7 +194,7 @@ class PipelineTrace:
         self.pipeline = pipeline
         self.model_name = model_name
         self.query_id = query_id
-        self.created_at = datetime.now(timezone.utc).isoformat()
+        self.created_at = datetime.now(UTC).isoformat()
         self.stages: list[StageRecord] = []
         self._redactor = redactor
         self._start = time.perf_counter()
@@ -210,7 +211,7 @@ class PipelineTrace:
         record = StageRecord(
             name=name,
             index=len(self.stages),
-            started_at=datetime.now(timezone.utc).isoformat(),
+            started_at=datetime.now(UTC).isoformat(),
         )
         self.stages.append(record)
         handle = StageHandle(record, self._redactor)
@@ -244,7 +245,7 @@ class PipelineTrace:
                 },
             )
 
-    def finish(self) -> "PipelineTrace":
+    def finish(self) -> PipelineTrace:
         """İzlemeyi kapatır ve toplam süreyi sabitler."""
         if not self._finished:
             self.total_duration_sec = time.perf_counter() - self._start

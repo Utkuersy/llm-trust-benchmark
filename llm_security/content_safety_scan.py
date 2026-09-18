@@ -36,8 +36,9 @@ import argparse
 import re
 import time
 import unicodedata
+from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any
 
 from core.config import PROJECT_ROOT, Settings, get_settings
 from core.logging_setup import get_logger
@@ -141,7 +142,7 @@ class LocalToxicityClassifier:
     """Yerel diskten yüklenen, ağ erişimi gerektirmeyen toksisite modeli."""
 
     def __init__(self, model_path: str, threshold: float) -> None:
-        from transformers import pipeline  # noqa: PLC0415 - opsiyonel bagimlilik
+        from transformers import pipeline
 
         self._pipe = pipeline(
             "text-classification",
@@ -157,7 +158,7 @@ class LocalToxicityClassifier:
         """Metin toksikse (etiket, skor) döndürür, değilse None."""
         try:
             output = self._pipe(text[:2000])
-        except Exception as exc:  # noqa: BLE001 - siniflandirici akisi kirmasin
+        except Exception as exc:
             logger.debug("siniflandirici hatasi", extra={"error": str(exc)[:200]})
             return None
         if not output:
@@ -171,7 +172,7 @@ class LocalToxicityClassifier:
         return None
 
 
-def _context(text: str, token_index: int, tokens: Sequence[str], window: int) -> str:
+def _context(token_index: int, tokens: Sequence[str], window: int) -> str:
     start = max(0, token_index - window)
     end = min(len(tokens), token_index + window + 1)
     return " ".join(tokens[start:end])
@@ -207,7 +208,7 @@ def scan_text(
                         "severity": lexicon.severity,
                         "detector": "lexicon",
                         "matched_root": root,
-                        "context": _context(normalized, index, tokens, context_words),
+                        "context": _context(index, tokens, context_words),
                         "confidence": 1.0,
                     }
                 )
@@ -271,7 +272,7 @@ def build_classifier(settings: Settings) -> LocalToxicityClassifier | None:
         classifier = LocalToxicityClassifier(str(resolved), config.classifier_threshold)
         logger.info("yerel toksisite modeli yuklendi", extra={"path": str(resolved)})
         return classifier
-    except Exception as exc:  # noqa: BLE001 - opsiyonel bilesen
+    except Exception as exc:
         logger.warning("siniflandirici yuklenemedi", extra={"error": str(exc)[:200]})
         return None
 
@@ -367,12 +368,12 @@ def main() -> None:
     parser.add_argument("--outputs", required=True, help="llm_outputs/<model> klasoru")
     args = parser.parse_args()
 
-    from rag.rag_evaluator import load_llm_outputs  # noqa: PLC0415
+    from rag.rag_evaluator import load_llm_outputs
 
     path = Path(args.outputs)
     if not path.is_absolute():
         path = PROJECT_ROOT / path
-    print(scan_records(load_llm_outputs(path)).model_dump_json(indent=2))  # noqa: T201
+    print(scan_records(load_llm_outputs(path)).model_dump_json(indent=2))
 
 
 if __name__ == "__main__":

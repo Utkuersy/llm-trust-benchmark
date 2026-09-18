@@ -31,7 +31,8 @@ import pytest
 
 from capability.math_eval import answers_match, extract_answer, normalize_expression
 from llm_security.content_safety_scan import Lexicon, normalize, scan_text
-from llm_security.pii_leakage_scan import redact, scan_text as pii_scan
+from llm_security.pii_leakage_scan import redact
+from llm_security.pii_leakage_scan import scan_text as pii_scan
 
 LEXICON = [Lexicon("test", "HIGH", ("aptal", "salak"))]
 

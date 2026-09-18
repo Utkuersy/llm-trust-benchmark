@@ -20,8 +20,9 @@ from __future__ import annotations
 
 import argparse
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any, Sequence
+from typing import Any
 
 import numpy as np
 
@@ -107,13 +108,15 @@ class Retriever:
             return dense_hits[:top_k]
 
         lexical = _minmax(bm25_scores(query, documents))
-        lexical_by_id = {doc.doc_id: float(score) for doc, score in zip(documents, lexical)}
+        lexical_by_id = {
+            doc.doc_id: float(score) for doc, score in zip(documents, lexical, strict=True)
+        }
 
         dense_scores = _minmax(np.asarray([hit.score for hit in dense_hits], dtype=np.float32))
         alpha = float(self.settings.rag.hybrid_alpha)
 
         combined: dict[str, SearchHit] = {}
-        for hit, dense_score in zip(dense_hits, dense_scores):
+        for hit, dense_score in zip(dense_hits, dense_scores, strict=True):
             score = alpha * float(dense_score) + (1 - alpha) * lexical_by_id.get(hit.doc_id, 0.0)
             combined[hit.doc_id] = SearchHit(
                 doc_id=hit.doc_id, text=hit.text, source=hit.source,
@@ -122,7 +125,7 @@ class Retriever:
 
         # Dense sonuçlara girmemiş ama lexical olarak güçlü chunk'ları da ekle.
         for doc, score in sorted(
-            zip(documents, lexical), key=lambda pair: -pair[1]
+            zip(documents, lexical, strict=True), key=lambda pair: -pair[1]
         )[:top_k]:
             if doc.doc_id not in combined and score > 0:
                 combined[doc.doc_id] = SearchHit(
@@ -184,7 +187,7 @@ def evaluate_retrieval(
 
         precisions.append(relevant_retrieved / retrieved)
         found_sources = {
-            source.lower() for source, flag in zip(record.sources, flags) if flag
+            source.lower() for source, flag in zip(record.sources, flags, strict=True) if flag
         }
         expected_set = {item.lower() for item in record.expected_sources}
         recalls.append(len(found_sources & expected_set) / max(1, len(expected_set)))
@@ -222,7 +225,7 @@ def main() -> None:
     retriever = Retriever(mode=args.mode)
     for rank, hit in enumerate(retriever.search(args.query, args.top_k), start=1):
         preview: Any = hit.text[:160].replace("\n", " ")
-        print(f"{rank}. [{hit.score:.4f}] {hit.source} :: {preview}")  # noqa: T201
+        print(f"{rank}. [{hit.score:.4f}] {hit.source} :: {preview}")
 
 
 if __name__ == "__main__":

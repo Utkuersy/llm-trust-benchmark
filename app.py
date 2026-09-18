@@ -158,7 +158,7 @@ def render_overview(
     st.plotly_chart(
         px.bar(
             melted, x="boyut", y="puan", color="model_name", barmode="group", range_y=[0, 100],
-        ).update_layout(height=320, margin=dict(t=10, b=10), legend_title=None),
+        ).update_layout(height=320, margin={"t": 10, "b": 10}, legend_title=None),
         use_container_width=True,
     )
 
@@ -227,7 +227,7 @@ def _render_pipeline_mini(payloads: dict[str, dict[str, Any]]) -> None:
     st.plotly_chart(
         px.bar(
             pd.DataFrame(rows), x="aşama", y="bulgu", color="model_name", barmode="group",
-        ).update_layout(height=280, margin=dict(t=10, b=10), showlegend=False),
+        ).update_layout(height=280, margin={"t": 10, "b": 10}, showlegend=False),
         use_container_width=True,
     )
     if bottlenecks:
@@ -256,11 +256,11 @@ def render_details(
         col1, col2 = st.columns(2)
         with col1:
             model_choice = st.selectbox(
-                "Model", ["(tümü)"] + sorted(findings["model_name"].unique().tolist())
+                "Model", ["(tümü)", *sorted(findings["model_name"].unique().tolist())]
             )
         with col2:
             category_choice = st.selectbox(
-                "Kategori", ["(tümü)"] + sorted(findings["category"].unique().tolist())
+                "Kategori", ["(tümü)", *sorted(findings["category"].unique().tolist())]
             )
         view = findings.copy()
         if model_choice != "(tümü)":
@@ -406,11 +406,11 @@ def render_add_model(settings: Settings) -> None:
             )
 
         with st.spinner(f"'{safe_name}' değerlendiriliyor…"):
-            from benchmark_engine import run_benchmark  # noqa: PLC0415 - agir importlari geciktir
+            from benchmark_engine import run_benchmark
 
             try:
                 results = run_benchmark(models=[safe_name], settings=settings)
-            except Exception as exc:  # noqa: BLE001 - kullaniciya okunabilir hata goster
+            except Exception as exc:
                 st.error(f"Değerlendirme başarısız oldu: {exc}")
                 return
 

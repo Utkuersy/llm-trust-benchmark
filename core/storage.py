@@ -22,9 +22,10 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, cast
 
 from core.config import PROJECT_ROOT, Settings, get_settings
 from core.logging_setup import get_logger
@@ -497,8 +498,12 @@ def fetch_findings(
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     params.append(limit)
     with connect(settings) as connection:
+        # `where` yalnizca sabit sorgu parcalarindan ("run_id = ?", "track = ?")
+        # olusur; gercek degerler asagida params ile parametreli baglanir,
+        # dogrudan SQL metnine hicbir kullanici girdisi enjekte edilmez.
         rows = connection.execute(
-            f"SELECT * FROM findings {where} ORDER BY id DESC LIMIT ?", params  # noqa: S608
+            f"SELECT * FROM findings {where} ORDER BY id DESC LIMIT ?",  # nosec B608
+            params,
         ).fetchall()
     return _rows_to_dicts(rows)
 
@@ -520,10 +525,10 @@ def latest_run_payload(
     if row is None:
         return None
     try:
-        return json.loads(row["payload"])
+        return cast(dict[str, Any], json.loads(row["payload"]))
     except (ValueError, json.JSONDecodeError):
         return None
 
 
 if __name__ == "__main__":
-    print(f"veritabani hazirlandi: {init_db()}")  # noqa: T201
+    print(f"veritabani hazirlandi: {init_db()}")

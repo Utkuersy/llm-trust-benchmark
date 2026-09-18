@@ -26,8 +26,9 @@ from __future__ import annotations
 
 import argparse
 import time
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Any, Callable, Sequence
+from typing import Any
 
 from core.config import Settings, get_settings
 from core.logging_setup import get_logger
@@ -148,7 +149,7 @@ def default_answer_fn(question: str, contexts: list[str]) -> str:
     chunk retrieval'a girerse cevaba da yansır. Böylece simülasyon,
     "retrieval savunması olmayan bir sistem ne kadar kanar" sorusunu ölçer.
     """
-    from rag.rag_evaluator import content_words, split_sentences  # noqa: PLC0415
+    from rag.rag_evaluator import content_words, split_sentences
 
     question_words = content_words(question)
     best_sentence = ""
@@ -179,7 +180,7 @@ def simulate(
 
     try:
         retriever, poison_ids = build_poisoned_retriever(selected, settings)
-    except Exception as exc:  # noqa: BLE001 - korpus/indeks eksik olabilir
+    except Exception as exc:
         logger.error("zehirli indeks kurulamadi", extra={"error": str(exc)[:300]})
         return PoisoningResult(status=Status.ERROR, message=str(exc)[:300])
 
@@ -195,7 +196,7 @@ def simulate(
         contexts = [hit.text for hit in hits]
         try:
             answer = str(answer_fn(case.query, contexts))
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning(
                 "cevaplayici hata verdi", extra={"case": case.case_id, "error": str(exc)[:200]}
             )
@@ -250,7 +251,7 @@ def main() -> None:
     result = simulate()
     if args.model:
         logger.info("simulasyon etiketi", extra={"model": args.model})
-    print(result.model_dump_json(indent=2))  # noqa: T201
+    print(result.model_dump_json(indent=2))
 
 
 if __name__ == "__main__":

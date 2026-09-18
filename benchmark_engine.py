@@ -34,37 +34,34 @@ import argparse
 import json
 import os
 import uuid
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
-from capability import math_eval
 from core.config import PROJECT_ROOT, Settings, get_settings
+from core.dimensions import DimensionContext, all_dimensions, register_builtin_dimensions
 from core.logging_setup import get_logger
 from core.schemas import (
     EvaluationResult,
-    MathEvalResult,
-    PoisoningResult,
     RetrievalResult,
     Status,
     Track,
 )
-from core.scoring import SCORING_VERSION, aggregate as weighted_score, resolve_preset
+from core.scoring import SCORING_VERSION, resolve_preset
+from core.scoring import aggregate as weighted_score
 from core.storage import init_db, save_track_b
-from core.trace import PipelineTrace, aggregate as aggregate_traces
+from core.trace import PipelineTrace
+from core.trace import aggregate as aggregate_traces
 from core.tracking import ExperimentTracker, get_tracker
 from llm_security import (
     content_safety_scan,
-    data_poisoning_sim,
     pii_leakage_scan,
-    prompt_injection_tests,
 )
 from rag import rag_evaluator
-from rag.retriever import RetrievalRecord, evaluate_retrieval
+from rag.retriever import RetrievalRecord
 from rag.vector_store import SearchHit
 
 logger = get_logger(__name__)
-
-from core.dimensions import DimensionContext, all_dimensions, register_builtin_dimensions
 
 register_builtin_dimensions()
 DIMENSIONS = tuple(dimension.key for dimension in all_dimensions())
@@ -185,7 +182,7 @@ def build_traces(
 # Puanlama
 # --------------------------------------------------------------------------- #
 def compute_trust_score(
-    result: EvaluationResult, settings: Settings, preset: str
+    result: EvaluationResult, _settings: Settings, preset: str
 ) -> tuple[float, dict[str, float], dict[str, float]]:
     """Ağırlıklı Trust Score, alt puanlar ve kullanılan ağırlıkları döndürür."""
     weights = resolve_preset("B", preset)
@@ -346,7 +343,7 @@ def benchmark_model(
             continue
         try:
             setattr(result, dimension.key, dimension.evaluator(context))
-        except Exception as exc:  # noqa: BLE001 - bir boyutun hatasi digerlerini durdurmasin
+        except Exception as exc:
             logger.exception(
                 "boyut degerlendirmesi basarisiz",
                 extra={"dimension": dimension.key, "model": model_name, "error": str(exc)},
@@ -478,7 +475,7 @@ def run_benchmark(
             )
             persist(result, tracker, settings)
             results.append(result)
-        except Exception as exc:  # noqa: BLE001 - tek model hatasi kosuyu durdurmasin
+        except Exception as exc:
             logger.exception(
                 "model degerlendirmesi basarisiz",
                 extra={"model": model_dir.name, "error": str(exc)},
@@ -508,17 +505,17 @@ def main() -> None:
         return
 
     preset = results[0].weight_preset
-    print(f"\n=== Trust Score ozeti (on ayar: {preset}, v{SCORING_VERSION}) ===")  # noqa: T201
+    print(f"\n=== Trust Score ozeti (on ayar: {preset}, v{SCORING_VERSION}) ===")
     for result in sorted(results, key=lambda r: r.trust_score, reverse=True):
         parts = " ".join(f"{k}={v:.0f}" for k, v in result.subscores.items())
-        print(f"{result.model_name:<10} {result.trust_score:6.2f}   {parts}")  # noqa: T201
+        print(f"{result.model_name:<10} {result.trust_score:6.2f}   {parts}")
 
-    print("\n=== Pipeline: asama bazli bulgu ===")  # noqa: T201
+    print("\n=== Pipeline: asama bazli bulgu ===")
     for result in results:
         stages = result.pipeline.get("stage_findings", {})
         if stages:
             summary = " ".join(f"{k}={v}" for k, v in stages.items())
-            print(f"{result.model_name:<10} {summary}")  # noqa: T201
+            print(f"{result.model_name:<10} {summary}")
 
 
 if __name__ == "__main__":

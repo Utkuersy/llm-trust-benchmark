@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import itertools
 from pathlib import Path
 
 from core.config import PROJECT_ROOT, Settings, get_settings
@@ -147,7 +148,7 @@ def chunk_text(text: str, chunk_size: int, overlap: int) -> list[str]:
     # Overlap'ı chunk'lar arasında da uygula (bağlam kopmasını azaltır).
     if overlap and len(chunks) > 1:
         merged = [chunks[0]]
-        for previous, current in zip(chunks, chunks[1:]):
+        for previous, current in itertools.pairwise(chunks):
             merged.append((previous[-overlap:] + "\n" + current).strip())
         chunks = merged
     return [chunk for chunk in chunks if chunk.strip()]
@@ -225,7 +226,7 @@ def main() -> None:
     parser.add_argument("--reset", action="store_true", help="Mevcut indeksi sil ve yeniden kur")
     parser.add_argument("--seed", action="store_true", help="Ornek korpus dosyalarini olustur")
     args = parser.parse_args()
-    print(ingest(reset=args.reset, seed=args.seed))  # noqa: T201
+    print(ingest(reset=args.reset, seed=args.seed))
 
 
 if __name__ == "__main__":

@@ -22,7 +22,8 @@ her sonuç kaydına yazılır. Endüstriyel fark burada: keyfi olmamak değil,
 
 from __future__ import annotations
 
-from typing import Any, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 SCORING_VERSION = "3.0.0"
 
@@ -501,9 +502,9 @@ def print_reference_table() -> str:
 
 
 if __name__ == "__main__":
-    print(print_reference_table())  # noqa: T201
+    print(print_reference_table())
     for track_name, presets in (("A", TRACK_A_PRESETS), ("B", TRACK_B_PRESETS)):
         for name in presets:
             resolved = resolve_preset(track_name, name)
             formatted = ", ".join(f"{k}={v:.3f}" for k, v in resolved.items())
-            print(f"Track {track_name} / {name}: {formatted}")  # noqa: T201
+            print(f"Track {track_name} / {name}: {formatted}")

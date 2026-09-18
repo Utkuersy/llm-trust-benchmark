@@ -11,8 +11,8 @@ Tüm alt sonuçlarda ortak sözleşme:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -20,17 +20,17 @@ from pydantic import BaseModel, ConfigDict, Field
 
 def utcnow() -> datetime:
     """Zaman damgası üretir (UTC, timezone-aware)."""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
-class Track(str, Enum):
+class Track(StrEnum):
     """Değerlendirme hattı."""
 
     A = "A"  # Code Trustworthiness
     B = "B"  # LLM/RAG Trustworthiness
 
 
-class Status(str, Enum):
+class Status(StrEnum):
     """Bir analiz adımının teknik sonucu."""
 
     OK = "ok"

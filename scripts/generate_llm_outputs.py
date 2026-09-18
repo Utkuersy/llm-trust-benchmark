@@ -20,12 +20,11 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 from typing import Any
 
+from capability.math_eval import SEED_PROBLEMS, ensure_seed_dataset
 from core.config import Settings, get_settings
 from core.logging_setup import get_logger
-from capability.math_eval import SEED_PROBLEMS, ensure_seed_dataset
 from llm_security.prompt_injection_tests import MULTI_TURN_SCENARIOS, SCENARIOS
 from rag.ingest import ingest
 from rag.retriever import Retriever
@@ -282,7 +281,7 @@ def generate(settings: Settings | None = None) -> dict[str, int]:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Track B ornek cevap dosyalarini uret")
     parser.parse_args()
-    print(generate())  # noqa: T201
+    print(generate())
 
 
 if __name__ == "__main__":

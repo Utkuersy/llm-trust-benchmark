@@ -100,7 +100,7 @@ class ScoringConfig(_Base):
         return resolve_preset("B", self.track_b_preset)
 
     @model_validator(mode="after")
-    def _presets_exist(self) -> "ScoringConfig":
+    def _presets_exist(self) -> ScoringConfig:
         from core.scoring import TRACK_A_PRESETS, TRACK_B_PRESETS
 
         if not self.track_a_weights_override and self.track_a_preset not in TRACK_A_PRESETS:
@@ -295,4 +295,4 @@ def reset_settings_cache() -> None:
 
 
 if __name__ == "__main__":
-    print(get_settings().model_dump_json(indent=2))  # noqa: T201
+    print(get_settings().model_dump_json(indent=2))

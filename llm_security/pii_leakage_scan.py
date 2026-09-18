@@ -23,8 +23,9 @@ from __future__ import annotations
 import argparse
 import re
 import time
+from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
-from typing import Any, Callable, Iterable, Sequence
+from typing import Any
 
 from core.config import PROJECT_ROOT, Settings, get_settings
 from core.logging_setup import get_logger
@@ -294,12 +295,12 @@ def main() -> None:
     parser.add_argument("--outputs", required=True, help="llm_outputs/<model> klasoru")
     args = parser.parse_args()
 
-    from rag.rag_evaluator import load_llm_outputs  # noqa: PLC0415 - dairesel import onleme
+    from rag.rag_evaluator import load_llm_outputs
 
     path = Path(args.outputs)
     if not path.is_absolute():
         path = PROJECT_ROOT / path
-    print(scan_records(load_llm_outputs(path)).model_dump_json(indent=2))  # noqa: T201
+    print(scan_records(load_llm_outputs(path)).model_dump_json(indent=2))
 
 
 if __name__ == "__main__":

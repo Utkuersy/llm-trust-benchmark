@@ -77,7 +77,7 @@ def run_command(
 
     start = time.perf_counter()
     try:
-        completed = subprocess.run(  # noqa: S603 # nosec B603
+        completed = subprocess.run(  # nosec B603
             command,
             cwd=str(cwd) if cwd else None,
             env=full_env,
@@ -95,7 +95,8 @@ def run_command(
         )
         return CommandResult(
             command=command,
-            returncode=-signal.SIGKILL,
+            # SIGKILL POSIX'e özgüdür; Windows'ta yok (AttributeError riski).
+            returncode=-getattr(signal, "SIGKILL", signal.SIGTERM),
             stdout=_truncate(exc.stdout or "" if isinstance(exc.stdout, str) else "", max_output),
             stderr=_truncate(exc.stderr or "" if isinstance(exc.stderr, str) else "", max_output),
             timed_out=True,

@@ -35,10 +35,11 @@ from __future__ import annotations
 import argparse
 import json
 import random
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
-from core.config import PROJECT_ROOT, Settings, get_settings
+from core.config import PROJECT_ROOT
 from core.logging_setup import get_logger
 
 logger = get_logger(__name__)
@@ -60,7 +61,7 @@ def sample_for_labeling(
     Sistemin kendi puanı şablona **yazılmaz** — bu bilinçli bir tasarım
     kararıdır (bkz. modül dokümanı).
     """
-    from rag.rag_evaluator import load_llm_outputs  # noqa: PLC0415
+    from rag.rag_evaluator import load_llm_outputs
 
     records = load_llm_outputs(model_dir)
     if not records:
@@ -130,9 +131,11 @@ def _spearman(x: Sequence[float], y: Sequence[float]) -> float:
     mean_x = sum(rank_x) / n
     mean_y = sum(rank_y) / n
 
-    numerator = sum((rx - mean_x) * (ry - mean_y) for rx, ry in zip(rank_x, rank_y))
-    denom_x = sum((rx - mean_x) ** 2 for rx in rank_x) ** 0.5
-    denom_y = sum((ry - mean_y) ** 2 for ry in rank_y) ** 0.5
+    numerator: float = sum(
+        (rx - mean_x) * (ry - mean_y) for rx, ry in zip(rank_x, rank_y, strict=True)
+    )
+    denom_x: float = sum((rx - mean_x) ** 2 for rx in rank_x) ** 0.5
+    denom_y: float = sum((ry - mean_y) ** 2 for ry in rank_y) ** 0.5
 
     if denom_x == 0 or denom_y == 0:
         return float("nan")
@@ -141,10 +144,10 @@ def _spearman(x: Sequence[float], y: Sequence[float]) -> float:
 
 def _binary_confusion(system_flags: Sequence[bool], human_flags: Sequence[bool]) -> dict[str, int]:
     """İkili etiketler için karışıklık matrisi (precision/recall temeli)."""
-    tp = sum(1 for s, h in zip(system_flags, human_flags) if s and h)
-    fp = sum(1 for s, h in zip(system_flags, human_flags) if s and not h)
-    fn = sum(1 for s, h in zip(system_flags, human_flags) if not s and h)
-    tn = sum(1 for s, h in zip(system_flags, human_flags) if not s and not h)
+    tp = sum(1 for s, h in zip(system_flags, human_flags, strict=True) if s and h)
+    fp = sum(1 for s, h in zip(system_flags, human_flags, strict=True) if s and not h)
+    fn = sum(1 for s, h in zip(system_flags, human_flags, strict=True) if not s and h)
+    tn = sum(1 for s, h in zip(system_flags, human_flags, strict=True) if not s and not h)
     return {"true_positive": tp, "false_positive": fp, "false_negative": fn, "true_negative": tn}
 
 
@@ -300,18 +303,18 @@ def main() -> None:
             path = PROJECT_ROOT / path
         template = sample_for_labeling(path, n=args.n, dimension=args.dimension)
         write_labeling_template(template, Path(args.out))
-        print(f"{len(template)} öğelik şablon yazıldı: {args.out}")  # noqa: T201
-        print("İnsan etiketleyici 'human_label' alanlarını doldurmalı.")  # noqa: T201
+        print(f"{len(template)} öğelik şablon yazıldı: {args.out}")
+        print("İnsan etiketleyici 'human_label' alanlarını doldurmalı.")
 
     elif args.command == "analyze":
         labels = json.loads(Path(args.labels).read_text(encoding="utf-8"))
         scores = json.loads(Path(args.scores).read_text(encoding="utf-8"))
         analysis = analyze_calibration(labels, scores)
-        print(format_report(analysis))  # noqa: T201
+        print(format_report(analysis))
 
     else:
         analysis = run_calibration_demo()
-        print(format_report(analysis))  # noqa: T201
+        print(format_report(analysis))
 
 
 if __name__ == "__main__":

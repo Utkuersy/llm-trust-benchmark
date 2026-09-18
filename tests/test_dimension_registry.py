@@ -43,34 +43,34 @@ def _dummy_result(score: float = 50.0, status: Status = Status.OK) -> BaseResult
 # --------------------------------------------------------------------------- #
 def test_register_and_retrieve() -> None:
     """Kaydedilen bir boyut adıyla geri alınabilmeli."""
-    register(Dimension("test_dim", "Test", "safety", None, lambda ctx: _dummy_result()))
+    register(Dimension("test_dim", "Test", "safety", None, lambda _ctx: _dummy_result()))
     assert get("test_dim") is not None
     assert get("test_dim").label == "Test"
 
 
 def test_duplicate_registration_raises_by_default() -> None:
     """Aynı anahtarla ikinci kayıt, açıkça izin verilmedikçe hataya düşmeli."""
-    register(Dimension("dup", "İlk", "safety", None, lambda ctx: _dummy_result()))
+    register(Dimension("dup", "İlk", "safety", None, lambda _ctx: _dummy_result()))
     with pytest.raises(ValueError, match="zaten kayıtlı"):
-        register(Dimension("dup", "İkinci", "safety", None, lambda ctx: _dummy_result()))
+        register(Dimension("dup", "İkinci", "safety", None, lambda _ctx: _dummy_result()))
 
 
 def test_duplicate_registration_allowed_with_replace() -> None:
     """replace=True ile bilinçli üzerine yazma serbest olmalı."""
-    register(Dimension("dup", "İlk", "safety", None, lambda ctx: _dummy_result()))
-    register(Dimension("dup", "İkinci", "safety", None, lambda ctx: _dummy_result()), replace=True)
+    register(Dimension("dup", "İlk", "safety", None, lambda _ctx: _dummy_result()))
+    register(Dimension("dup", "İkinci", "safety", None, lambda _ctx: _dummy_result()), replace=True)
     assert get("dup").label == "İkinci"
 
 
 def test_invalid_pillar_rejected() -> None:
     """Tanımsız bir ISO sütunu reddedilmeli — sessizce kabul edilmemeli."""
     with pytest.raises(ValueError, match="iso_pillar"):
-        register(Dimension("bad", "Kötü", "not_a_pillar", None, lambda ctx: _dummy_result()))
+        register(Dimension("bad", "Kötü", "not_a_pillar", None, lambda _ctx: _dummy_result()))
 
 
 def test_unregister_removes_dimension() -> None:
     """Kayıttan çıkarma gerçekten kaldırmalı."""
-    register(Dimension("temp", "Geçici", "safety", None, lambda ctx: _dummy_result()))
+    register(Dimension("temp", "Geçici", "safety", None, lambda _ctx: _dummy_result()))
     unregister("temp")
     assert get("temp") is None
 

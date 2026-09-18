@@ -15,6 +15,7 @@ uçtan uca doğrulanmasına yeter ve sonuçta ``backend`` alanı raporlanır.
 from __future__ import annotations
 
 import hashlib
+import itertools
 import json
 import math
 import re
@@ -82,7 +83,7 @@ class HashingEmbedder:
     def _vector(self, text: str) -> np.ndarray:
         vector = np.zeros(self.dim, dtype=np.float32)
         tokens = tokenize(text)
-        grams = tokens + [f"{a}_{b}" for a, b in zip(tokens, tokens[1:])]
+        grams = tokens + [f"{a}_{b}" for a, b in itertools.pairwise(tokens)]
         for gram in grams:
             digest = hashlib.blake2b(gram.encode("utf-8"), digest_size=8).digest()
             index = int.from_bytes(digest[:4], "little") % self.dim
@@ -104,7 +105,7 @@ class SentenceTransformerEmbedder:
     name = "sentence_transformers"
 
     def __init__(self, model_name: str) -> None:
-        from sentence_transformers import SentenceTransformer  # noqa: PLC0415
+        from sentence_transformers import SentenceTransformer
 
         self._model = SentenceTransformer(model_name)
         self.dim = int(self._model.get_sentence_embedding_dimension())
@@ -128,7 +129,7 @@ def build_embedder(settings: Settings | None = None) -> Embedder:
             embedder = SentenceTransformerEmbedder(settings.rag.embedding_model)
             logger.info("embedding backend", extra={"backend": embedder.name})
             return embedder
-        except Exception as exc:  # noqa: BLE001 - opsiyonel bagimlilik
+        except Exception as exc:
             if backend == "sentence_transformers":
                 raise
             logger.warning(
@@ -239,7 +240,7 @@ class ChromaVectorStore:
     backend = "chroma"
 
     def __init__(self, persist_dir: Path, collection: str, embedder: Embedder) -> None:
-        import chromadb  # noqa: PLC0415
+        import chromadb
 
         persist_dir.mkdir(parents=True, exist_ok=True)
         self.embedder = embedder
@@ -345,7 +346,7 @@ def build_vector_store(
             store = ChromaVectorStore(persist_dir, settings.rag.collection_name, embedder)
             logger.info("vector store backend", extra={"backend": "chroma"})
             return store
-        except Exception as exc:  # noqa: BLE001 - opsiyonel bagimlilik
+        except Exception as exc:
             if backend == "chroma":
                 raise
             logger.warning(

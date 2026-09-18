@@ -10,8 +10,6 @@ nasıl elde ettin, kanıtla." Testler bu iddiayı iki şekilde sınar:
 
 from __future__ import annotations
 
-import sqlite3
-
 import pytest
 
 from core.audit import GENESIS_HASH, _compute_hash, fetch_audit_log, record_run, verify_chain
@@ -162,9 +160,8 @@ def test_dataset_components_lists_all_pieces() -> None:
 
 def test_dataset_version_changes_when_scenario_count_differs() -> None:
     """Farklı bir senaryo kümesi farklı bir hash üretmeli."""
-    from llm_security.prompt_injection_tests import InjectionScenario
-
     from core.versioning import _hash_module_constant
+    from llm_security.prompt_injection_tests import InjectionScenario
 
     original = _hash_module_constant("llm_security.prompt_injection_tests", "SCENARIOS")
 
@@ -174,7 +171,7 @@ def test_dataset_version_changes_when_scenario_count_differs() -> None:
         scenario_id="TEST-EXTRA", name="test", category="test", severity="LOW", prompt="x",
     )
     original_scenarios = module.SCENARIOS
-    module.SCENARIOS = original_scenarios + (extra_scenario,)
+    module.SCENARIOS = (*original_scenarios, extra_scenario)
     try:
         changed = _hash_module_constant("llm_security.prompt_injection_tests", "SCENARIOS")
         assert changed != original

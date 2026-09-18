@@ -32,7 +32,7 @@ import json
 import re
 import time
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 from core.config import PROJECT_ROOT, Settings, get_settings
 from core.logging_setup import get_logger
@@ -223,11 +223,11 @@ def extract_answer(response: str) -> str | None:
 
     boxed = BOXED.findall(text)
     if boxed:
-        return boxed[-1].strip()
+        return str(boxed[-1]).strip()
 
     marker = ANSWER_MARKERS.findall(text)
     if marker:
-        candidate = marker[-1].strip()
+        candidate = str(marker[-1]).strip()
         if candidate:
             return candidate
 
@@ -236,11 +236,11 @@ def extract_answer(response: str) -> str | None:
     if last_line:
         numbers = FINAL_NUMBER.findall(last_line[-1])
         if numbers:
-            return numbers[-1].strip()
+            return str(numbers[-1]).strip()
 
     numbers = FINAL_NUMBER.findall(text)
     if numbers:
-        return numbers[-1].strip()
+        return str(numbers[-1]).strip()
     return None
 
 
@@ -271,14 +271,14 @@ def _as_float(value: str) -> float | None:
 
 def _symbolically_equal(left: str, right: str) -> bool:
     try:
-        from sympy import simplify  # noqa: PLC0415 - opsiyonel bagimlilik
-        from sympy.parsing.sympy_parser import parse_expr  # noqa: PLC0415
+        from sympy import simplify
+        from sympy.parsing.sympy_parser import parse_expr
     except ImportError:
         return False
     try:
         difference = simplify(parse_expr(left) - parse_expr(right))
         return bool(difference == 0)
-    except Exception:  # noqa: BLE001 - ayristirilamayan ifade denk degildir
+    except Exception:
         return False
 
 
@@ -410,7 +410,7 @@ def evaluate(
 
 def _sympy_available() -> bool:
     try:
-        import sympy  # noqa: F401, PLC0415
+        import sympy  # noqa: F401
     except ImportError:
         return False
     return True
@@ -431,7 +431,7 @@ def main() -> None:
 
     settings = get_settings()
     if args.seed:
-        print(f"soru seti: {ensure_seed_dataset(settings)}")  # noqa: T201
+        print(f"soru seti: {ensure_seed_dataset(settings)}")
         if not args.outputs:
             return
 
@@ -441,7 +441,7 @@ def main() -> None:
     path = Path(args.outputs)
     if not path.is_absolute():
         path = PROJECT_ROOT / path
-    print(evaluate(load_responses(path), settings=settings).model_dump_json(indent=2))  # noqa: T201
+    print(evaluate(load_responses(path), settings=settings).model_dump_json(indent=2))
 
 
 if __name__ == "__main__":
