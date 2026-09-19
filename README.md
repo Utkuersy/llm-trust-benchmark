@@ -9,9 +9,7 @@ An evaluation platform designed to run on an internal network, measuring the rel
 
 > **The problem:** An LLM assistant giving a wrong answer is a fixable error. It producing an answer containing profanity, insults, or leaked personal data is a corporate incident. This platform makes the second one measurable — and tells you at which pipeline stage the risk came from.
 
-[![Dashboard walkthrough](docs/assets/dashboard-demo-thumbnail.png)](docs/assets/dashboard-demo.mp4)
-
-*(click the screenshot above to watch the ~40s dashboard walkthrough video)*
+https://github.com/user-attachments/assets/95d86036-185b-4b7f-aad7-877822f8de03
 
 ## Table of contents
 
